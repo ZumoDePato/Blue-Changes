@@ -221,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v13</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v14</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -1348,7 +1348,7 @@ const XARP={
 function xarpKind(c){const k=chordInfo(c.q);if(k.kind==='dom')return (k.alt||k.ext.some(e=>e===13||e===15||e===20))?'alt':'dom';if(k.kind==='maj')return k.sev===11?'maj':'six';if(k.kind==='min')return 'min';return XARP[k.kind]?k.kind:'maj';}
 function lineEngine(X,st,o){
   const {B,chordAt,nextC,bar,t0,bd,swung}=X;
-  if(st.lastK!==P.k-1)Object.assign(st,{lastEnd:null,gb:0,cur:.5,prev:o.center,dir:-1,left:o.phrase[0],plen:o.phrase[0],q:[],seq:null,pend:null,lastCell:''});
+  if(st.lastK!==P.k-1)Object.assign(st,{lastEnd:null,gb:0,cur:.5,prev:o.center,dir:-1,left:null,plen:16,q:[],seq:null,pend:null,lastCell:''});
   st.lastK=P.k;
   const end=st.gb+B,sw=swung?(bar.tempo>210?.56:.61):.5;
   const Ts=x=>{const fb=Math.floor(x+1e-6),fr=x-fb;return t0+(fb+(Math.abs(fr-.5)<1e-3?sw:fr))*bd;};
@@ -1410,12 +1410,20 @@ function lineEngine(X,st,o){
       st.pend=target(ctAt(at+2),n,q.d,true);return 2;},
   };
   const W=o.w;
+  // longitud de frase en compases, alineada con los grupos de 4 compases del tema
+  const phraseLen=at=>{const pos=bar.pos??0,inBar=at-st.gb,toGroup=(4-pos%4)*B-inBar;
+    const r=rnd();
+    if(r<.8){ // 4 a 5 compases, la longitud que mejor caiga con el final de un grupo de 4
+      let best=4*B,bs=1e9;for(const L of [4*B,4.5*B,5*B]){let d=1e9;for(let m=0;m<3;m++)d=Math.min(d,Math.abs(toGroup+4*B*m-L));d+=rnd()*.8;if(d<bs){bs=d;best=L;}}
+      return best-1.5;}
+    return pick([2,3,6])*B-1.5;}; // a veces se rompe la estructura
+  if(st.left==null)st.left=st.plen=phraseLen(st.cur);
   while(st.cur<end){
     const at=st.cur,c=ctAt(at);
     if(!c||c.nc){st.cur=Math.floor(at)+1;continue;}
     if(st.left<=0){ // fin de frase: nota larga y respiración corta
       const L=pick([1,1.5,1.5,2]);cells.long(at,c,L);
-      st.cur=at+L+pick(o.breath);st.left=st.plen=o.phrase[0]+Math.floor(rnd()*(o.phrase[1]-o.phrase[0]+1));
+      st.cur=at+L+pick(o.breath);st.left=st.plen=phraseLen(st.cur);
       if(rnd()<.5)st.cur=Math.floor(st.cur)+.5;st.dir=rnd()<.6?-st.dir:st.dir;continue;}
     const onBeat=Math.abs(at-Math.round(at))<1e-6,changing=!sameChord(ctAt(at),ctAt(at-1));
     let k;
