@@ -221,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v16</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v17</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -1016,8 +1016,22 @@ function scheduleBar(bar,t0,next){
     if(bar.role==='pianosolo'){pianoSolo(X);pianoLH(X);}else pianoComp(X,light);
     if(bar.role==='saxsolo')saxSolo(X);
   }
+  const SOLO={saxsolo:['ssolo',(t,n,d,v,f)=>saxNote(t,n,d,v,o.sax,f),52,77,64],pianosolo:['solo',(t,n,d,v)=>pnote(t,n,d,v,o.piano),60,84,70],basssolo:['bsolo',(t,n,d,v)=>bnote(t,n,d,clamp(v*1.25,.1,1),o.bass),38,58,46]};
+  if(next&&SOLO[next.role]&&next.role!==bar.role&&next.segs&&next.segs.length&&rnd()<.6)soloPickup(X,next,SOLO[next.role]);
   if(S.click!=='off')for(let b=0;b<B;b++){if(S.click==='24'&&b%2===0)continue;hit(b===0?'clickHi':'clickLo',T(b),.55,o.click);}
   return B*bd;
+}
+/* Entrada del solista justo antes de su vuelta (4.º tiempo): unas notas de escala que suben
+   hasta la primera nota del solo, y el solo continúa desde ahí. */
+function soloPickup(X,next,[key,play,lo,hi,center]){
+  const {B,T}=X,c=next.segs[0].c;if(c.nc)return;
+  const I=chordInfo(c.q),sc=chordScale(c);
+  const tgt=nearestNote(mod12(c.pc+pick([I.third,I.third,I.fifth,0])),center,lo+4,hi-2);
+  const n=pick([2,3,3]),starts=n===3?[B-1.5,B-1,B-.5]:[B-1,B-.5];
+  let m=tgt;const notes=[];for(let i=0;i<n;i++){m=rnd()<.2&&i===0?m-1:stepScale(m,-1,sc);notes.unshift(m);}
+  notes.forEach((m2,i)=>{const t=T(starts[i]),t2=i+1<n?T(starts[i+1]):T(B);play(t+(rnd()-.5)*.008,m2,Math.max(.06,t2-t),.5+i*.05,{first:i===0,legato:i>0,legato_out:true,acc:i===n-1?.06:0});});
+  // el solo empieza en el compás siguiente ya conectado con la anacrusa
+  P[key]={lastK:P.k,opening:true,lastEnd:0,gb:0,cur:0,prev:notes[n-1],dir:1,left:null,plen:16,q:[],seq:null,pend:tgt,lastCell:''};
 }
 function drumsBand(X,light){
   const {B,T,H,bar,kit,style,o,I}=X,D=(n,b,v)=>hit(n,T(b)+H(),v*(light?.6:1)*(.9+rnd()*.2),o.drums);
@@ -1363,7 +1377,7 @@ const XARP={
 function xarpKind(c){const k=chordInfo(c.q);if(k.kind==='dom')return (k.alt||k.ext.some(e=>e===13||e===15||e===20))?'alt':'dom';if(k.kind==='maj')return k.sev===11?'maj':'six';if(k.kind==='min')return 'min';return XARP[k.kind]?k.kind:'maj';}
 function lineEngine(X,st,o){
   const {B,chordAt,nextC,bar,t0,bd,swung}=X;
-  if(st.lastK!==P.k-1)Object.assign(st,{lastEnd:null,gb:0,cur:.5,prev:o.center,dir:-1,left:null,plen:16,q:[],seq:null,pend:null,lastCell:''});
+  if(st.lastK!==P.k-1)Object.assign(st,{opening:true,lastEnd:null,gb:0,cur:.5,prev:o.center,dir:1,left:null,plen:16,q:[],seq:null,pend:null,lastCell:''});
   st.lastK=P.k;
   const end=st.gb+B,sw=swung?(bar.tempo>210?.56:.61):.5;
   const Ts=x=>{const fb=Math.floor(x+1e-6),fr=x-fb;return t0+(fb+(Math.abs(fr-.5)<1e-3?sw:fr))*bd;};
@@ -1438,11 +1452,12 @@ function lineEngine(X,st,o){
     if(!c||c.nc){st.cur=Math.floor(at)+1;continue;}
     if(st.left<=0){ // fin de frase: nota larga y respiración corta
       const L=pick([1,1.5,1.5,2]);cells.long(at,c,L);
-      st.cur=at+L+pick(o.breath);st.left=st.plen=phraseLen(st.cur);
+      st.cur=at+L+pick(o.breath);st.left=st.plen=phraseLen(st.cur);st.opening=false;
       if(rnd()<.5)st.cur=Math.floor(st.cur)+.5;st.dir=rnd()<.6?-st.dir:st.dir;continue;}
     const onBeat=Math.abs(at-Math.round(at))<1e-6,changing=!sameChord(ctAt(at),ctAt(at-1));
     let k;
     if(!onBeat)k=rnd()<.7?'appr':'long';
+    else if(st.opening){k=changing&&st.seq?'seq':(rnd()<.78?'run':'long');if(k==='run'&&!st.seq)st.dir=1;}
     else if(changing&&st.seq&&rnd()<.4)k='seq';
     else{const r=rnd()*W.tot;let acc=0;for(const [name,w] of W.list){acc+=w;if(r<acc){k=name;break;}}}
     if(k==='xarp'&&(B-(at-st.gb))<2&&rnd()<.5)k='arp';
