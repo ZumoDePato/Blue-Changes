@@ -245,7 +245,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v26</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v27</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -383,6 +383,8 @@ a{color:var(--sky)}
         <div class="top"><b>Batería</b><button class="switch" data-key="drums.on" role="switch" aria-label="Batería"></button></div>
         <input type="range" min="0" max="2" step="0.01" data-key="drums.vol" aria-label="Volumen batería">
         <div class="chips" data-key="kit"><button data-v="auto">Auto</button><button data-v="sticks">Baquetas</button><button data-v="brushes">Escobillas</button></div>
+        <div class="lbl" style="font:700 11px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)">Caja · toca para oírla</div>
+        <div class="chips" data-key="snare"><button data-v="calida">Cálida</button><button data-v="hr">Oscura</button><button data-v="bb">Clara</button><button data-v="bp">Seca</button></div>
       </div>
       <div class="card inst">
         <div class="top"><b>Saxo (solos)</b></div>
@@ -724,7 +726,7 @@ const BUILTIN=[
 ].map(s=>({...s,fmt:'text',builtin:true,playlist:'Incluidas'}));
 
 /* ============ estado ============ */
-const DEF={mode:'free',reps:0,loopOn:false,loopA:1,loopB:4,autoTempo:false,incBpm:5,maxBpm:260,tradeLen:4,soloChoruses:2,fours:false,soloists:[],solo2Choruses:1,countIn:1,click:'off',style:'auto',kit:'auto',reverb:'club',transpose:0,inst:0,
+const DEF={mode:'free',reps:0,loopOn:false,loopA:1,loopB:4,autoTempo:false,incBpm:5,maxBpm:260,tradeLen:4,snare:'calida',soloChoruses:2,fours:false,soloists:[],solo2Choruses:1,countIn:1,click:'off',style:'auto',kit:'auto',reverb:'club',transpose:0,inst:0,
   piano:{on:true,vol:1,tim:'piano'},bass:{on:true,vol:.85,tim:'upright'},drums:{on:true,vol:.8},sax:{vol:1},songId:'b-blues-f',tempos:{},playlist:'Todas'};
 let S=Object.assign({},DEF,store.get('bc_settings',{}));
 S.soloists=(Array.isArray(S.soloists)?S.soloists:[]).filter(x=>['sax','piano','bass','drums'].includes(x));S.fours=!!S.fours;
@@ -893,21 +895,30 @@ const SMP_DIR='samples/';
 const SMP={piano:{dir:'piano',lo:36,hi:96,lvl:.62,rel:.12},rhodes:{dir:'rhodes',lo:36,hi:96,lvl:.7,rel:.16},vibes:{dir:'vibes',lo:48,hi:96,lvl:.62,rel:.45},organ:{dir:'organ',lo:36,hi:96,lvl:.32,rel:.05},
   tenor:{dir:'tenor',lo:44,hi:82,step:2,lvl:.72,rel:.07},
   upright:{dir:'upright',lo:24,hi:63,lvl:1.05,rel:.06},electric:{dir:'electric',lo:24,hi:63,lvl:.9,rel:.05},synth:{dir:'synth',lo:24,hi:63,lvl:.6,rel:.05}};
-const KIT={kick:5,snare:5,rim:5,tomL:5,tomM:5,hh:5,hhfoot:5,hhopen:5,crash:5,splash:5,ride:5,bell:5,shaker:5,btap:1};
+const KIT={kick:5,rim:5,tomL:5,tomM:5,hh:5,hhfoot:5,hhopen:5,crash:5,splash:5,ride:5,bell:5,shaker:5,btap:1};
 const KITFILES=Object.entries(KIT).flatMap(([n,c])=>Array.from({length:c},(_,i)=>n+'_'+(i+1)));
+const SNARE_FILE={bb:i=>'snare_'+i,hr:i=>'snare-hr_'+i,calida:i=>'snare-calida_'+i,bp:i=>'snare-bp_'+i};
+const SNARE_SETS={};
 const RAW={},LOADING={};AU.smp={};AU.real={};
 function fetchRaw(path){if(!RAW[path])RAW[path]=fetch(SMP_DIR+path).then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();});RAW[path].catch(()=>{});return RAW[path];}
 function instNotes(name){const d=SMP[name],a=[];for(let m=d.lo;m<=d.hi;m+=(d.step||3))a.push(m);return a;}
-function prefetch(name){try{if(name==='drums')KITFILES.forEach(n=>fetchRaw('drums/'+n+'.mp3'));else instNotes(name).forEach(m=>fetchRaw(SMP[name].dir+'/'+m+'.mp3'));}catch(e){}}
+function prefetch(name){try{if(name==='drums'){KITFILES.forEach(n=>fetchRaw('drums/'+n+'.mp3'));[1,2,3,4,5].forEach(i=>fetchRaw('drums/'+(SNARE_FILE[S.snare]||SNARE_FILE.calida)(i)+'.mp3'));}else instNotes(name).forEach(m=>fetchRaw(SMP[name].dir+'/'+m+'.mp3'));}catch(e){}}
 function decode(ab){return new Promise((res,rej)=>{try{const p=AU.ctx.decodeAudioData(ab.slice(0),res,rej);if(p&&p.then)p.then(res,rej);}catch(e){rej(e);}});}
 function normGain(b){let pk=0;for(let c=0;c<b.numberOfChannels;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i+=3){const v=Math.abs(d[i]);if(v>pk)pk=v;}}return pk>0?.8/pk:1;}
+async function loadSnare(v){ // caja elegida: 5 capas de dinámica
+  v=SNARE_FILE[v]?v:'calida';
+  if(!SNARE_SETS[v]){const out=[];
+    await Promise.all([1,2,3,4,5].map(async i=>{try{out[i-1]=await decode(await fetchRaw('drums/'+SNARE_FILE[v](i)+'.mp3'));}catch(e){}}));
+    const lay=out.filter(Boolean);if(lay.length<3)return false;let pk=0;lay.forEach(b=>{const g=.8/normGain(b);if(g>pk)pk=g;});lay.g=pk>0?.8/pk:1;SNARE_SETS[v]=lay;}
+  if(v===S.snare)AU.real.snare=SNARE_SETS[v];return true;}
+async function previewSnare(){try{await initAudio();await loadSnare(S.snare);const t=AU.ctx.currentTime+.08,o=AU.ch.drums;[[0,.3],[.42,.55],[.84,.8],[1.4,.5],[1.7,.65]].forEach(([d,v])=>hit('snare',t+d,v,o));}catch(e){}}
 function loadInst(name){
   if(LOADING[name])return LOADING[name];
   LOADING[name]=(async()=>{
     if(name==='drums'){const out={};let ok=0;
       await Promise.all(KITFILES.map(async f=>{try{const b=await decode(await fetchRaw('drums/'+f+'.mp3'));const [n,i]=f.split('_');(out[n]=out[n]||[])[+i-1]=b;ok++;}catch(e){}}));
       for(const n in out){out[n]=out[n].filter(Boolean);let pk=0;out[n].forEach(b=>{const g=.8/normGain(b);if(g>pk)pk=g;});out[n].g=pk>0?.8/pk:1;} // misma ganancia para todas las capas: la dinámica es la grabada
-      if(ok>=40){AU.real=out;return true;}return false;}
+      if(ok>=40){AU.real=out;await loadSnare(S.snare);return true;}return false;}
     const map={};await Promise.all(instNotes(name).map(async m=>{try{const b=await decode(await fetchRaw(SMP[name].dir+'/'+m+'.mp3'));map[m]={b,g:normGain(b)};}catch(e){}}));
     if(Object.keys(map).length>=4){AU.smp[name]=map;return true;}return false;
   })();
@@ -1543,16 +1554,16 @@ function pianoSolo(X){const f=X.bar.tempo>=200,sl=X.bar.tempo<100;lineEngine(X,P
 function bassSolo(X){lineEngine(X,P.bsolo,{lo:38,hi:58,center:46,orn:.08,phrase:[6,12],breath:[1,1.5],base:.72,lay:.004,jit:.012,gap:.01,
   w:mkW({run:.25,arp:.17,xarp:.04,enc:.1,turn:.02,trip:.05,long:.27,seq:.1}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
 const DCELLS=[
-  [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.8],[0,'crash',.5]],
+  [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.6],[0,'splash',.45]],
   [[0,'snare',.7],[.5,'kick',.6]],[[0,'snare',.5],[.25,'snare',.35],[.5,'snare',.55],[.75,'snare',.7]],[[.5,'snare',.8]],
-  [[0,'tomL',.7],[.5,'tomM',.6]],[[0,'kick',.6],[2/3,'snare',.7]],[[1/3,'tomH',.6],[2/3,'snare',.8]],[[0,'ride',.5],[2/3,'ride',.35]],[]
+  [[0,'tomL',.7],[.5,'tomM',.6]],[[0,'kick',.6],[2/3,'snare',.7]],[[1/3,'tomH',.6],[2/3,'snare',.8]],[[0,'ride',.5],[2/3,'ride',.35]],[],[],[[0,'ride',.4],[1,'ride',.3]]
 ];
 const DFILLS=[[[0,'snare',.7],[1/3,'tomH',.7],[2/3,'tomM',.8]],[[0,'tomH',.75],[.25,'tomM',.7],[.5,'tomL',.8],[.75,'tomL',.85]],[[0,'snare',.6],[1/3,'snare',.7],[2/3,'kick',.9]]];
 function drumSolo(X){
-  const {B,T,H,bar,o}=X,D=(n,b,v)=>hit(n,T(b)+H(),v*(.85+rnd()*.3),o.drums);
-  if(bar.segStart){D('crash',0,.6);D('kick',0,.75);}
+  const {B,T,H,bar,o}=X,G=.55,D=(n,b,v)=>hit(n,T(b)+H(),v*G*(.85+rnd()*.3),o.drums); // G: el solo suena en las capas suaves y medias
+  if(bar.segStart){if(rnd()<.5)D('splash',0,.5);D('kick',0,.55);}
   for(let b=0;b<B;b++){
-    if(b%2===1)D('hhfoot',b,.4);
+    if(b%2===1)D('hhfoot',b,.75);
     if(bar.segStart&&b===0)continue;
     const cell=bar.segEnd&&b===B-1?pick(DFILLS):pick(DCELLS);
     cell.forEach(([p,n,v])=>D(n,b+p,v));
@@ -1718,6 +1729,7 @@ function changed(k){
   saveS();refreshControls();applyMix();
   if(['transpose','inst'].includes(k)){renderChart();renderHead();if(!P.playing)idleDisplay();}
   if(k==='style'){renderHead();}
+  if(k==='snare')previewSnare();
   if(k==='piano.tim'||k==='bass.tim'){if(AU.ctx)loadInst(getPath(k));else prefetch(getPath(k));}
   if(STRUCT.includes(k)){renderArr();renderChart();if(k==='mode'||k==='loopOn')P.startIdx=0;restartIfPlaying();}
 }
