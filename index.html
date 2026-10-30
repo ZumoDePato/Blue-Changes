@@ -221,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v15</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v16</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -340,18 +340,22 @@ a{color:var(--sky)}
       <h3>Banda</h3>
       <div class="card inst">
         <div class="top"><b>Piano</b><button class="switch" data-key="piano.on" role="switch" aria-label="Piano"></button></div>
-        <input type="range" min="0" max="1" step="0.01" data-key="piano.vol" aria-label="Volumen piano">
+        <input type="range" min="0" max="3" step="0.01" data-key="piano.vol" aria-label="Volumen piano">
         <div class="chips" data-key="piano.tim"><button data-v="piano">Piano</button><button data-v="rhodes">Rhodes</button><button data-v="vibes">Vibráfono</button><button data-v="organ">Órgano</button></div>
       </div>
       <div class="card inst">
         <div class="top"><b>Bajo</b><button class="switch" data-key="bass.on" role="switch" aria-label="Bajo"></button></div>
-        <input type="range" min="0" max="1" step="0.01" data-key="bass.vol" aria-label="Volumen bajo">
+        <input type="range" min="0" max="2" step="0.01" data-key="bass.vol" aria-label="Volumen bajo">
         <div class="chips" data-key="bass.tim"><button data-v="upright">Contrabajo</button><button data-v="electric">Eléctrico</button><button data-v="synth">Sintetizador</button></div>
       </div>
       <div class="card inst">
         <div class="top"><b>Batería</b><button class="switch" data-key="drums.on" role="switch" aria-label="Batería"></button></div>
-        <input type="range" min="0" max="1" step="0.01" data-key="drums.vol" aria-label="Volumen batería">
+        <input type="range" min="0" max="2" step="0.01" data-key="drums.vol" aria-label="Volumen batería">
         <div class="chips" data-key="kit"><button data-v="auto">Auto</button><button data-v="sticks">Baquetas</button><button data-v="brushes">Escobillas</button></div>
+      </div>
+      <div class="card inst">
+        <div class="top"><b>Saxo (solos)</b></div>
+        <input type="range" min="0" max="2" step="0.01" data-key="sax.vol" aria-label="Volumen saxo">
       </div>
       <div class="card">
         <div class="row"><div class="lbl">Sala</div><div class="seg" data-key="reverb" style="min-width:190px"><button data-v="dry">Seco</button><button data-v="club">Club</button><button data-v="hall">Sala</button></div></div>
@@ -682,9 +686,9 @@ const BUILTIN=[
 
 /* ============ estado ============ */
 const DEF={mode:'free',reps:0,loopOn:false,loopA:1,loopB:4,autoTempo:false,incBpm:5,maxBpm:260,tradeLen:4,tradeStart:'you',soloChoruses:3,solo2:'piano',solo2Choruses:1,countIn:1,click:'off',style:'auto',kit:'auto',reverb:'club',transpose:0,inst:0,
-  piano:{on:true,vol:.75,tim:'piano'},bass:{on:true,vol:.85,tim:'upright'},drums:{on:true,vol:.8},songId:'b-blues-f',tempos:{},playlist:'Todas'};
+  piano:{on:true,vol:1,tim:'piano'},bass:{on:true,vol:.85,tim:'upright'},drums:{on:true,vol:.8},sax:{vol:1},songId:'b-blues-f',tempos:{},playlist:'Todas'};
 let S=Object.assign({},DEF,store.get('bc_settings',{}));
-['piano','bass','drums'].forEach(k=>S[k]=Object.assign({},DEF[k],S[k]||{}));
+['piano','bass','drums','sax'].forEach(k=>S[k]=Object.assign({},DEF[k],S[k]||{}));
 let USER=store.get('bc_songs',[]);
 let saveT;function saveS(){clearTimeout(saveT);saveT=setTimeout(()=>store.set('bc_settings',S),200);}
 function saveUser(){if(!store.set('bc_songs',USER))toast('No se pudo guardar en este navegador; seguirán aquí hasta que cierres.');}
@@ -737,10 +741,10 @@ async function initAudio(){
 }
 function applyMix(){
   if(!AU.ctx)return;const t=AU.ctx.currentTime;
-  AU.ch.piano.gain.setTargetAtTime(S.piano.on?S.piano.vol*.9:0,t,.03);
+  AU.ch.piano.gain.setTargetAtTime(S.piano.on?S.piano.vol*1.1:0,t,.03);
   AU.ch.bass.gain.setTargetAtTime(S.bass.on?S.bass.vol*1.1:0,t,.03);
   AU.ch.drums.gain.setTargetAtTime(S.drums.on?S.drums.vol:0,t,.03);
-  AU.ch.click.gain.setTargetAtTime(.8,t,.03);AU.ch.sax.gain.setTargetAtTime(1,t,.03);
+  AU.ch.click.gain.setTargetAtTime(.8,t,.03);AU.ch.sax.gain.setTargetAtTime(S.sax.vol,t,.03);
   AU.rev.gain.setTargetAtTime(S.reverb==='dry'?0:S.reverb==='hall'?.55:.32,t,.05);
   const ir=S.reverb==='hall'?AU.irs.hall:AU.irs.club;if(AU.conv.buffer!==ir)try{AU.conv.buffer=ir;}catch(e){}
 }
