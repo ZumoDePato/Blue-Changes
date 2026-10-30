@@ -257,7 +257,7 @@ a{color:var(--sky)}
       </div>
       <div class="quick">
         <label class="qsel"><small>Tono</small><select id="qKey" aria-label="Tonalidad"></select></label>
-        <label class="qsel"><small>Modo</small><select id="qMode" aria-label="Modo de práctica"><option value="free">Libre</option><option value="t4">Cambios de 4</option><option value="t8">Cambios de 8</option><option value="full">Tema completo</option></select></label>
+        <label class="qsel"><small>Modo</small><select id="qMode" aria-label="Modo de práctica"><option value="free">Libre</option><option value="t4">Cambios de 4</option><option value="t8">Cambios de 8</option><option value="full-sax">Tema completo + saxo</option><option value="full-piano">Tema completo + piano</option><option value="full-bass">Tema completo + bajo</option><option value="full-trades">Tema completo + 4s batería</option><option value="full-none">Tema completo (solo tú)</option></select></label>
         <label class="qsel"><small>Estilo</small><select id="qStyle" aria-label="Estilo"><option value="auto">Auto</option><option value="swing">Swing</option><option value="bossa">Bossa nova</option><option value="ballad">Balada</option><option value="latin">Latin</option><option value="funk">Funk</option><option value="waltz">Vals jazz</option></select></label>
         <label class="qsel"><small>Cifrado para</small><select id="qInst" aria-label="Instrumento"><option value="0">C · concierto</option><option value="2">B♭ · trompeta, tenor</option><option value="9">E♭ · saxo alto</option><option value="7">F · trompa</option></select></label>
       </div>
@@ -1417,7 +1417,7 @@ function arrItems(){
   return [{t:S.reps?`${S.reps} vueltas`:'Vueltas sin fin',i:-1,c:''},{t:S.loopOn?`Loop c. ${Math.min(S.loopA,S.loopB)}–${Math.max(S.loopA,S.loopB)}`:`${L} compases`,i:-2,c:''},{t:S.autoTempo?`+${S.incBpm} BPM/vuelta`:'Tempo fijo',i:-3,c:''}];
 }
 function renderArr(){const h=arrItems().map(x=>`<div class="${x.c}" data-i="${x.i}">${esc(x.t)}</div>`).join('');$('#arr').innerHTML=h;$('#arr2').innerHTML=h;
-  $('#modeLbl').textContent={free:'Libre',trades:`Cambios de ${S.tradeLen}`,full:'Completo'}[S.mode];
+  $('#modeLbl').textContent={free:'Libre',trades:`Cambios de ${S.tradeLen}`,full:{sax:'+ Saxo',piano:'+ Piano',bass:'+ Bajo',trades:'+ 4s',none:'Completo'}[S.solo2]||'Completo'}[S.mode];
   $('#chartHint').style.display=S.mode==='free'?'':'none';}
 function renderTempo(){$('#bpm').textContent=P.tempo;$('#tempoLbl').textContent=P.tempo;$('#tempoRange').value=P.tempo;}
 function getPath(k){return k.split('.').reduce((o,p)=>o?.[p],S);}
@@ -1520,7 +1520,7 @@ function renderQuick(){
   const s=CUR.song;if(!s)return;const k=parseKey(s.key);let h='';
   for(let t=-6;t<=6;t++){const pc=mod12(k.pc+t);h+=`<option value="${t}">${spell(pc,sharpsFor(pc,k.minor))}${k.minor?'m':''}${t===0?' · original':` (${t>0?'+':''}${t})`}</option>`;}
   const qk=$('#qKey');qk.innerHTML=h;qk.value=String(S.transpose);
-  $('#qMode').value=S.mode==='trades'?(S.tradeLen===8?'t8':'t4'):S.mode;
+  $('#qMode').value=S.mode==='trades'?(S.tradeLen===8?'t8':'t4'):S.mode==='full'?'full-'+S.solo2:S.mode;
   $('#qStyle').value=S.style;$('#qInst').value=String(S.inst);
 }
 function importText(txt){
@@ -1594,7 +1594,7 @@ $('#catList').addEventListener('click',e=>{const b=e.target.closest('.imp');cons
 $('#qKey').addEventListener('change',e=>{S.transpose=+e.target.value;changed('transpose');});
 $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style');});
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
-$('#qMode').addEventListener('change',e=>{const v=e.target.value;if(v==='t4'||v==='t8'){S.mode='trades';S.tradeLen=v==='t8'?8:4;}else S.mode=v;changed('mode');});
+$('#qMode').addEventListener('change',e=>{const v=e.target.value;if(v==='t4'||v==='t8'){S.mode='trades';S.tradeLen=v==='t8'?8:4;}else if(v.startsWith('full-')){S.mode='full';S.solo2=v.slice(5);if(S.solo2==='sax'){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}else S.mode=v;changed('mode');});
 $('#plChips').addEventListener('click',e=>{const b=e.target.closest('[data-pl]');if(!b)return;S.playlist=b.dataset.pl;saveS();renderLib();});
 $('#songList').addEventListener('click',e=>{
   const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openEdit(USER.find(u=>u.id===ed.dataset.edit));return;}
