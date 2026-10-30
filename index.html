@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#040b1c">
 <meta name="apple-mobile-web-app-title" content="Blue Changes">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=24">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=24">
+<link rel="manifest" href="manifest.webmanifest?v=24">
 <title>Blue Changes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,6 +40,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .brand .ver{font:700 10px var(--ui);color:var(--mute);letter-spacing:.1em;align-self:flex-start}
 .appbar .sub{font:600 10px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .appbar .brand{flex:none}
+@media (max-width:359px){.appbar .sub{display:none}.brand .ver{display:none}}
 main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 20px}
 .view{display:none;flex-direction:column;gap:14px}
 .view.active{display:flex}
@@ -238,7 +239,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><img class="logo" src="icons/logo-mark.png" alt="Blue Changes" width="40" height="40"><b>Blue</b><i>changes</i><small class="ver">v23</small></div>
+    <div class="brand"><img class="logo" src="icons/logo-mark.png" alt="Blue Changes" width="40" height="40"><b>Blue</b><i>changes</i><small class="ver">v24</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
