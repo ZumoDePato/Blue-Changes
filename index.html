@@ -184,6 +184,16 @@ input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 .imp{border:0;border-radius:999px;padding:8px 14px;font:700 13px var(--ui);background:var(--blue);color:#fff;flex:none}
 .imp.done{background:rgba(94,242,160,.15);color:#5ef2a0}
 .song.cat .k{background:rgba(59,125,255,.2)}
+.chips button.fold{border-style:dashed}
+.chips button.fold::before{content:"";display:inline-block;width:11px;height:8px;margin-right:6px;border:1.5px solid currentColor;border-radius:2px;border-top-width:3px;vertical-align:0}
+.chips button.addf{color:var(--sky);border-color:rgba(143,208,255,.4)}
+.foldbar{display:flex;gap:8px;align-items:center}
+.foldbar b{flex:1;font:700 15px var(--ui)}
+.foldbar button{border:1px solid var(--line);background:rgba(4,11,28,.5);border-radius:999px;padding:6px 12px;font:600 12px var(--ui)}
+.flist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.flist button{display:flex;justify-content:space-between;align-items:center;border:0;border-top:1px solid var(--line);background:rgba(4,11,28,.4);padding:13px 14px;font:600 15px var(--ui);text-align:left}
+.flist button:first-child{border-top:0}
+.flist button .ck{color:#5ef2a0;font-weight:700}
 a{color:var(--sky)}
 /* mixer cards */
 .inst{display:flex;flex-direction:column;gap:10px}
@@ -211,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v11</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v12</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -233,6 +243,7 @@ a{color:var(--sky)}
       </div>
       <div class="libhead"><b>Mi biblioteca</b><span class="count" id="libCount"></span></div>
       <div class="chips" id="plChips"></div>
+      <div class="foldbar" id="foldBar" style="display:none"><b id="foldName"></b><button id="foldRen">Renombrar</button><button id="foldDel">Borrar carpeta</button></div>
       <div class="songlist" id="songList"></div>
       <p class="hint" id="catHint">Al buscar aparecen también los temas del catálogo de la comunidad de iReal Pro (Jazz 1460, Blues y Dixieland), con botón para importarlos. Tus canciones se guardan solo en este navegador.</p>
     </section>
@@ -410,6 +421,22 @@ a{color:var(--sky)}
     <label class="field"><span>Acordes (compases separados por |)</span><textarea id="edChords" placeholder="[A] Dm7 | G7 | Cmaj7 | % | [B] Bm7b5 | E7b9 | Am6 | %"></textarea></label>
     <p class="hint">[A] marca sección · % repite el compás · vale Cmaj7, C^7, Cm7, C-7, Cm7b5, Cø, Cdim7, C7b9, C7alt, C/E.</p>
     <div class="grid2"><button class="btn danger" id="edDel">Borrar</button><button class="btn primary" id="edSave">Guardar</button></div>
+  </div>
+
+  <div class="sheet" id="shFolder">
+    <div class="grab"></div>
+    <h2 id="fTitle">Nueva carpeta</h2>
+    <label class="field"><span>Nombre</span><input id="fName" type="text" placeholder="Por ejemplo: Repertorio del bolo"></label>
+    <button class="btn primary" id="fSave">Guardar</button>
+  </div>
+
+  <div class="sheet" id="shSong">
+    <div class="grab"></div>
+    <h2 id="sgTitle">Canción</h2>
+    <h3>Añadir a carpeta</h3>
+    <div class="flist" id="sgFolders"></div>
+    <button class="btn" id="sgNewF">Nueva carpeta con esta canción</button>
+    <div class="grid2"><button class="btn" id="sgEdit">Editar acordes</button><button class="btn danger" id="sgDel">Borrar canción</button></div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1620,19 +1647,35 @@ function renderLib(){
   }else box.style.display='none';
   /* mi biblioteca */
   const pls=['Todas',...new Set(songs.map(x=>x.playlist||'Mis canciones'))];
-  if(!pls.includes(S.playlist))S.playlist='Todas';
-  $('#plChips').innerHTML=pls.map(p=>`<button class="${p===S.playlist?'on':''}" data-pl="${esc(p)}">${esc(p)}</button>`).join('');
+  const fid=S.playlist.startsWith('f:')?S.playlist.slice(2):null,curF=fid?FOLD.find(f=>f.id===fid):null;
+  if(!pls.includes(S.playlist)&&!curF)S.playlist='Todas';
+  $('#plChips').innerHTML=pls.map(p=>`<button class="${p===S.playlist?'on':''}" data-pl="${esc(p)}">${esc(p)}</button>`).join('')
+    +FOLD.map(f=>`<button class="fold ${'f:'+f.id===S.playlist?'on':''}" data-pl="f:${esc(f.id)}">${esc(f.name)} · ${f.ids.length}</button>`).join('')
+    +'<button class="addf" id="addFolder">+ Carpeta</button>';
+  $('#foldBar').style.display=curF?'':'none';if(curF)$('#foldName').textContent=curF.name;
   const words=q.split(/\s+/).filter(Boolean);
-  let list=songs.filter(x=>(S.playlist==='Todas'||(x.playlist||'Mis canciones')===S.playlist)&&words.every(w=>norm(x.title+' '+x.composer).includes(w)));
+  let list=curF?curF.ids.map(id=>songs.find(x=>x.id===id)).filter(Boolean):songs.filter(x=>S.playlist==='Todas'||(x.playlist||'Mis canciones')===S.playlist);
+  list=list.filter(x=>words.every(w=>norm(x.title+' '+x.composer).includes(w)));
   const total=list.length;list=list.slice(0,250);
   $('#libCount').textContent=`${total} ${total===1?'canción':'canciones'}`;
-  $('#songList').innerHTML=list.map(x=>{const k=parseKey(x.key);return `<div class="song ${x.id===S.songId?'on':''}" data-id="${esc(x.id)}" role="button" tabindex="0"><div class="k">${spell(k.pc,sharpsFor(k.pc,k.minor))}${k.minor?'m':''}</div><div class="t"><b>${esc(x.title)}</b><small>${esc([x.composer,x.style].filter(Boolean).join(' · '))}</small></div>${x.builtin?'':`<button class="more" data-edit="${esc(x.id)}" aria-label="Editar">⋯</button>`}</div>`;}).join('')||'<p class="hint" style="padding:14px">Nada en tu biblioteca con ese nombre.</p>';
+  $('#songList').innerHTML=list.map(x=>{const k=parseKey(x.key);return `<div class="song ${x.id===S.songId?'on':''}" data-id="${esc(x.id)}" role="button" tabindex="0"><div class="k">${spell(k.pc,sharpsFor(k.pc,k.minor))}${k.minor?'m':''}</div><div class="t"><b>${esc(x.title)}</b><small>${esc([x.composer,x.style].filter(Boolean).join(' · '))}</small></div><button class="more" data-edit="${esc(x.id)}" aria-label="Opciones">⋯</button></div>`;}).join('')||`<p class="hint" style="padding:14px">${curF?'Carpeta vacía. Toca ⋯ en cualquier canción para añadirla, o busca un tema e impórtalo con esta carpeta abierta.':'Nada en tu biblioteca con ese nombre.'}</p>`;
   $('#catHint').style.display=q?'none':'';
 }
+let FOLD=store.get('bc_folders',[]),menuId=null,folderEdit=null,folderAdd=null;
+function saveFold(){store.set('bc_folders',FOLD);}
+function openFolderSheet(f,addId){folderEdit=f;folderAdd=addId||null;$('#fTitle').textContent=f?'Renombrar carpeta':'Nueva carpeta';$('#fName').value=f?f.name:'';openSheet('#shFolder');setTimeout(()=>$('#fName').focus(),300);}
+function saveFolder(){const name=$('#fName').value.trim();if(!name){toast('Escribe un nombre para la carpeta');return;}
+  if(folderEdit)folderEdit.name=name;else{const f={id:Date.now().toString(36),name,ids:folderAdd?[folderAdd]:[]};FOLD.push(f);S.playlist='f:'+f.id;saveS();}
+  saveFold();closeSheets();renderLib();toast(folderEdit?'Carpeta renombrada':folderAdd?`Canción añadida a «${name}»`:`Carpeta «${name}» creada`);}
+function openSongMenu(id){menuId=id;const m=allSongs().find(x=>x.id===id);if(!m)return;$('#sgTitle').textContent=m.title;
+  $('#sgEdit').style.display=m.builtin?'none':'';$('#sgDel').style.display=m.builtin?'none':'';$('#sgDel').dataset.sure='';$('#sgDel').textContent='Borrar canción';
+  renderSongMenu();openSheet('#shSong');}
+function renderSongMenu(){$('#sgFolders').innerHTML=FOLD.length?FOLD.map(f=>`<button data-f="${esc(f.id)}"><span>${esc(f.name)}</span><span class="ck">${f.ids.includes(menuId)?'✓':''}</span></button>`).join(''):'<p class="hint" style="padding:12px">Aún no tienes carpetas.</p>';}
 function importCat(i,open){
   const x=CATALOG&&CATALOG[i];if(!x)return;
   let m=inLib(x);
   if(!m){m={id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),fmt:'ireal',title:x.title,composer:x.composer,style:x.style,key:x.key,music:x.music,bpm:x.bpm,playlist:x.playlist};USER.push(m);saveUser();if(!open)toast(`«${x.title}» añadida a tu biblioteca`);}
+  const of=S.playlist.startsWith('f:')&&FOLD.find(f=>'f:'+f.id===S.playlist);if(of&&!of.ids.includes(m.id)){of.ids.push(m.id);saveFold();if(!open)toast(`«${x.title}» añadida a «${of.name}»`);}
   if(open){if(loadSong(m,true))go('v-play');}else renderLib();
 }
 function renderQuick(){
@@ -1714,9 +1757,21 @@ $('#qKey').addEventListener('change',e=>{S.transpose=+e.target.value;changed('tr
 $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style');});
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
 $('#qMode').addEventListener('change',e=>{const v=e.target.value;if(v==='t4'||v==='t8'){S.mode='trades';S.tradeLen=v==='t8'?8:4;}else if(v.startsWith('full-')){S.mode='full';S.solo2=v.slice(5);if(S.solo2==='sax'){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}else S.mode=v;changed('mode');});
-$('#plChips').addEventListener('click',e=>{const b=e.target.closest('[data-pl]');if(!b)return;S.playlist=b.dataset.pl;saveS();renderLib();});
+$('#plChips').addEventListener('click',e=>{if(e.target.closest('#addFolder')){openFolderSheet(null);return;}const b=e.target.closest('[data-pl]');if(!b)return;S.playlist=b.dataset.pl;saveS();renderLib();});
+$('#fSave').addEventListener('click',saveFolder);
+$('#fName').addEventListener('keydown',e=>{if(e.key==='Enter')saveFolder();});
+$('#foldRen').addEventListener('click',()=>{const f=FOLD.find(x=>'f:'+x.id===S.playlist);if(f)openFolderSheet(f);});
+$('#foldDel').addEventListener('click',()=>{const f=FOLD.find(x=>'f:'+x.id===S.playlist);if(!f)return;const b=$('#foldDel');
+  if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='¿Seguro? Toca otra vez';setTimeout(()=>{b.dataset.sure='';b.textContent='Borrar carpeta';},3000);return;}
+  b.dataset.sure='';b.textContent='Borrar carpeta';FOLD=FOLD.filter(x=>x!==f);saveFold();S.playlist='Todas';saveS();renderLib();toast(`Carpeta «${f.name}» borrada (las canciones siguen en tu biblioteca)`);});
+$('#sgFolders').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;const f=FOLD.find(x=>x.id===b.dataset.f);if(!f)return;
+  const i=f.ids.indexOf(menuId);if(i>=0)f.ids.splice(i,1);else f.ids.push(menuId);saveFold();renderSongMenu();renderLib();});
+$('#sgNewF').addEventListener('click',()=>{const id=menuId;closeSheets();setTimeout(()=>openFolderSheet(null,id),260);});
+$('#sgEdit').addEventListener('click',()=>{const m=allSongs().find(x=>x.id===menuId);closeSheets();if(m)setTimeout(()=>openEdit(m.builtin?null:m),260);});
+$('#sgDel').addEventListener('click',()=>{const b=$('#sgDel');if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='¿Seguro?';return;}
+  USER=USER.filter(u=>u.id!==menuId);FOLD.forEach(f=>f.ids=f.ids.filter(x=>x!==menuId));saveUser();saveFold();closeSheets();if(S.songId===menuId)loadSong(BUILTIN[0],true);renderLib();toast('Canción borrada');});
 $('#songList').addEventListener('click',e=>{
-  const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openEdit(USER.find(u=>u.id===ed.dataset.edit));return;}
+  const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openSongMenu(ed.dataset.edit);return;}
   const r=e.target.closest('.song');if(!r)return;const m=allSongs().find(s=>s.id===r.dataset.id);if(m&&loadSong(m,true))go('v-play');
 });
 $('#openImport').addEventListener('click',()=>{$('#impText').value='';$('#impFile').value='';openSheet('#shImport');});
