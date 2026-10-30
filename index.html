@@ -300,7 +300,7 @@ a{color:var(--sky)}
         <div class="row"><div class="lbl">Tus vueltas de solo</div>
           <div class="stepper" data-key="soloChoruses" data-min="1" data-max="8"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch"><div class="lbl">Después de tu solo</div>
-          <div class="seg" data-key="solo2"><button data-v="piano">Solo piano</button><button data-v="bass">Solo bajo</button><button data-v="trades">4s batería</button><button data-v="none">Nada</button></div></div>
+          <div class="seg" data-key="solo2"><button data-v="sax">Solo saxo</button><button data-v="piano">Solo piano</button><button data-v="bass">Solo bajo</button><button data-v="trades">4s batería</button><button data-v="none">Nada</button></div></div>
         <div class="row"><div class="lbl">Vueltas de ese solo</div>
           <div class="stepper" data-key="solo2Choruses" data-min="1" data-max="4"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
         <p class="hint">Tema → tu solo → solo de otro músico → tema final y acorde final. El track se para solo.</p>
@@ -681,15 +681,15 @@ async function initAudio(){
   const ctx=new C({latencyHint:'interactive'});AU.ctx=ctx;
   try{const b=ctx.createBuffer(1,1,22050),s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(0);}catch(e){}
   try{ctx.resume();}catch(e){}
-  const comp=ctx.createDynamicsCompressor();comp.threshold.value=-12;comp.ratio.value=2;comp.knee.value=12;comp.attack.value=.012;comp.release.value=.25;
+  const comp=ctx.createDynamicsCompressor();comp.threshold.value=-6;comp.ratio.value=1.6;comp.knee.value=10;comp.attack.value=.012;comp.release.value=.25;
   const master=ctx.createGain();master.gain.value=1.12;master.connect(comp);comp.connect(ctx.destination);
   AU.master=master;
   AU.conv=ctx.createConvolver();AU.irs={club:makeIR(ctx,1.3,.55),hall:makeIR(ctx,2.6,.4)};AU.conv.buffer=AU.irs.club;
   AU.rev=ctx.createGain();AU.conv.connect(AU.rev);AU.rev.connect(master);
-  const sends={piano:.3,bass:.1,drums:.3,click:0},pans={piano:.22,bass:-.04,drums:0,click:0};
-  for(const k of ['piano','bass','drums','click']){const g=ctx.createGain();let out=g;
+  const sends={piano:.3,bass:.1,drums:.3,click:0,sax:.32},pans={piano:.22,bass:-.04,drums:0,click:0,sax:-.18};
+  for(const k of ['piano','bass','drums','click','sax']){const g=ctx.createGain();let out=g;
     if(k==='drums'){ // bus de batería: compresión suave, un poco de saturación y ecualización de sala
-      const dc=ctx.createDynamicsCompressor();dc.threshold.value=-20;dc.ratio.value=2.6;dc.knee.value=10;dc.attack.value=.01;dc.release.value=.14;
+      const dc=ctx.createDynamicsCompressor();dc.threshold.value=-16;dc.ratio.value=1.8;dc.knee.value=10;dc.attack.value=.01;dc.release.value=.14;
       const sh=ctx.createWaveShaper(),cv=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;cv[i]=Math.tanh(1.6*x)/Math.tanh(1.6);}sh.curve=cv;
       const lo=ctx.createBiquadFilter();lo.type='lowshelf';lo.frequency.value=110;lo.gain.value=2;
       const mid=ctx.createBiquadFilter();mid.type='peaking';mid.frequency.value=420;mid.Q.value=.9;mid.gain.value=-2.5;
@@ -712,7 +712,7 @@ function applyMix(){
   AU.ch.piano.gain.setTargetAtTime(S.piano.on?S.piano.vol*.9:0,t,.03);
   AU.ch.bass.gain.setTargetAtTime(S.bass.on?S.bass.vol*1.1:0,t,.03);
   AU.ch.drums.gain.setTargetAtTime(S.drums.on?S.drums.vol:0,t,.03);
-  AU.ch.click.gain.setTargetAtTime(.8,t,.03);
+  AU.ch.click.gain.setTargetAtTime(.8,t,.03);AU.ch.sax.gain.setTargetAtTime(1,t,.03);
   AU.rev.gain.setTargetAtTime(S.reverb==='dry'?0:S.reverb==='hall'?.55:.32,t,.05);
   const ir=S.reverb==='hall'?AU.irs.hall:AU.irs.club;if(AU.conv.buffer!==ir)try{AU.conv.buffer=ir;}catch(e){}
 }
@@ -748,7 +748,7 @@ async function renderDrums(sr){
   const out={};names.forEach((n,i)=>out[n]=res[i]);return out;
 }
 const DPAN={ride:-.3,bell:-.3,crash:.38,splash:.42,hh:.3,hhfoot:.28,hhopen:.3,tomM:.18,tomL:-.2,rim:.05,shaker:.25,btap:.08};
-const DLVL={kick:1.15,snare:.9,rim:.8,tomL:.85,tomM:.85,hh:.62,hhfoot:.7,hhopen:.55,crash:.62,splash:.55,ride:.78,bell:.6,shaker:.5,btap:.9};
+const DLVL={kick:.55,snare:.9,rim:.8,tomL:.85,tomM:.85,hh:.62,hhfoot:.7,hhopen:.55,crash:.62,splash:.55,ride:.78,bell:.6,shaker:.5,btap:.9};
 const ALIAS={ride2:'ride',snare2:'snare',tomH:'tomM'};
 function hit(name,t,vel,out){
   if(vel<=0)return;t=Math.max(t,AU.ctx.currentTime);
@@ -817,12 +817,13 @@ function bnote(t,midi,dur,vel,out){
 /* ============ muestras reales ============ */
 const SMP_DIR='samples/';
 const SMP={piano:{dir:'piano',lo:36,hi:96,lvl:.62,rel:.12},rhodes:{dir:'rhodes',lo:36,hi:96,lvl:.7,rel:.16},vibes:{dir:'vibes',lo:48,hi:96,lvl:.62,rel:.45},organ:{dir:'organ',lo:36,hi:96,lvl:.32,rel:.05},
+  tenor:{dir:'tenor',lo:44,hi:82,step:2,lvl:.85,rel:.07},
   upright:{dir:'upright',lo:24,hi:63,lvl:1.05,rel:.06},electric:{dir:'electric',lo:24,hi:63,lvl:.9,rel:.05},synth:{dir:'synth',lo:24,hi:63,lvl:.6,rel:.05}};
 const KIT={kick:5,snare:5,rim:5,tomL:5,tomM:5,hh:5,hhfoot:5,hhopen:5,crash:5,splash:5,ride:5,bell:5,shaker:5,btap:1};
 const KITFILES=Object.entries(KIT).flatMap(([n,c])=>Array.from({length:c},(_,i)=>n+'_'+(i+1)));
 const RAW={},LOADING={};AU.smp={};AU.real={};
 function fetchRaw(path){if(!RAW[path])RAW[path]=fetch(SMP_DIR+path).then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();});RAW[path].catch(()=>{});return RAW[path];}
-function instNotes(name){const d=SMP[name],a=[];for(let m=d.lo;m<=d.hi;m+=3)a.push(m);return a;}
+function instNotes(name){const d=SMP[name],a=[];for(let m=d.lo;m<=d.hi;m+=(d.step||3))a.push(m);return a;}
 function prefetch(name){try{if(name==='drums')KITFILES.forEach(n=>fetchRaw('drums/'+n+'.mp3'));else instNotes(name).forEach(m=>fetchRaw(SMP[name].dir+'/'+m+'.mp3'));}catch(e){}}
 function decode(ab){return new Promise((res,rej)=>{try{const p=AU.ctx.decodeAudioData(ab.slice(0),res,rej);if(p&&p.then)p.then(res,rej);}catch(e){rej(e);}});}
 function normGain(b){let pk=0;for(let c=0;c<b.numberOfChannels;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i+=3){const v=Math.abs(d[i]);if(v>pk)pk=v;}}return pk>0?.8/pk:1;}
@@ -838,13 +839,22 @@ function loadInst(name){
   })();
   return LOADING[name];
 }
-function loadCurrent(){return Promise.all([loadInst(S.piano.tim),loadInst(S.bass.tim),loadInst('drums')]);}
+function loadCurrent(){return Promise.all([loadInst(S.piano.tim),loadInst(S.bass.tim),loadInst('drums')].concat(S.mode==='full'&&S.solo2==='sax'?[loadInst('tenor')]:[]));}
+function snote(t,midi,dur,vel,out){ // saxo tenor
+  const ctx=AU.ctx;t=Math.max(t,ctx.currentTime);vel=clamp(vel,.05,1);
+  if(AU.smp.tenor){sampleNote('tenor',t,midi,dur,vel,out);return;}
+  const o1=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o1.type='sawtooth';o1.frequency.value=mtof(midi);f.type='lowpass';f.frequency.value=900+vel*2200;f.Q.value=2;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12*vel,t+.03);g.gain.setValueAtTime(.12*vel,t+dur);g.gain.setTargetAtTime(0,t+dur,.05);o1.connect(f);f.connect(g);g.connect(out);o1.start(t);o1.stop(t+dur+.4);}
 function sampleNote(name,t,midi,dur,vel,out){
   const map=AU.smp[name],cfg=SMP[name],ctx=AU.ctx;let k=null,bd=99;
   for(const m in map){const d=Math.abs(m-midi);if(d<bd){bd=d;k=+m;}}
   const s=map[k],src=ctx.createBufferSource();src.buffer=s.b;src.playbackRate.value=Math.pow(2,(midi-k)/12);
-  const g=ctx.createGain(),lvl=cfg.lvl*s.g*Math.pow(clamp(vel,.05,1),1.3);
-  g.gain.setValueAtTime(lvl,t);g.gain.setValueAtTime(lvl,t+dur);g.gain.setTargetAtTime(0,t+dur,cfg.rel);
+  const g=ctx.createGain(),lvl=cfg.lvl*s.g*Math.pow(clamp(vel,.05,1),name==='tenor'?1.2:1.75);
+  if(name==='tenor'){ // soplido: ataque suave y vibrato en notas largas
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(lvl,t+.018);g.gain.setValueAtTime(lvl*.92,t+dur);
+    if(dur>.45&&src.detune){const lf=ctx.createOscillator(),lg=ctx.createGain();lf.frequency.value=5.2;lg.gain.setValueAtTime(0,t);lg.gain.linearRampToValueAtTime(14,t+dur);lf.connect(lg);lg.connect(src.detune);lf.start(t);lf.stop(t+dur+.3);}
+  }else{g.gain.setValueAtTime(lvl,t);g.gain.setValueAtTime(lvl,t+dur);}
+  g.gain.setTargetAtTime(0,t+dur,cfg.rel);
   let node=src;
   if(name==='piano'||name==='rhodes'||name==='upright'){const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=(name==='upright'?900:1400)+vel*(name==='upright'?3000:9000);f.Q.value=.3;src.connect(f);node=f;}
   node.connect(g);g.connect(out);src.start(t);src.stop(t+dur+cfg.rel*6+.05);
@@ -860,6 +870,7 @@ function segsFor(bar,tr){
 function buildParts(){
   const p=[{name:'Tema',info:'Toca la melodía',role:'band',tone:'head',n:1,cls:'head'},{name:'Tu solo',info:'Improvisa',role:'band',tone:'you',n:S.soloChoruses,cls:'you'}];
   if(S.solo2==='piano')p.push({name:'Solo de piano',info:'Escucha y acompaña',role:'pianosolo',tone:'piano',n:S.solo2Choruses,cls:'solo2'});
+  if(S.solo2==='sax')p.push({name:'Solo de saxo',info:'Escucha y acompaña',role:'saxsolo',tone:'piano',n:S.solo2Choruses,cls:'solo2'});
   if(S.solo2==='bass')p.push({name:'Solo de bajo',info:'Escucha y acompaña',role:'basssolo',tone:'bass',n:S.solo2Choruses,cls:'solo2'});
   if(S.solo2==='trades')p.push({name:'Cambios de 4',info:'Tú y la batería',role:'trades',tone:'you',n:S.solo2Choruses,cls:'drums'});
   p.push({name:'Tema final',info:'Melodía otra vez',role:'band',tone:'head',n:1,cls:'head'});
@@ -932,6 +943,7 @@ function scheduleBar(bar,t0,next){
     drumsBand(X,light);
     if(bar.role==='basssolo')bassSolo(X);else bassBand(X);
     if(bar.role==='pianosolo'){pianoSolo(X);pianoLH(X);}else pianoComp(X,light);
+    if(bar.role==='saxsolo')saxSolo(X);
   }
   if(S.click!=='off')for(let b=0;b<B;b++){if(S.click==='24'&&b%2===0)continue;hit(b===0?'clickHi':'clickLo',T(b),.55,o.click);}
   return B*bd;
@@ -948,7 +960,7 @@ function drumsBand(X,light){
         D('ride',b,(b%2?.52:.42)+.08*I);
         if((style==='waltz'&&b===1)||(style!=='waltz'&&b%2===1))D('ride',b+(rnd()<.92?.5:2/3),.28+.06*I);
         else if(rnd()<.06+.1*I)D('ride',b+2/3,.22);
-        if(!twoFeel)D('kick',b,.08);
+        if(!twoFeel&&rnd()<.6)D('kick',b,.04);
         if(!light&&rnd()<.08+.28*I)D('snare',b+pick([2/3,.5,0,2/3]),.08+rnd()*.12+.12*I);
         if(!light&&rnd()<.02+.08*I)D('kick',b+pick([2/3,.5]),.3+.2*I);
         if(!light&&I>.75&&rnd()<.08)D('rim',b+1/3,.3);
@@ -1112,7 +1124,7 @@ function pianoComp(X,soft){
     if(!c||c.nc)return;
     for(const s of segs)if(s.beat>b){nx=s.c;break;}
     const v=compVoice(c,nx,I);P.voicing=v;
-    const vel=(soft?.3:style==='ballad'?.4:.44+.1*I)+rnd()*.1,st=T(b)+H(),du=Math.max(.09,T(b+len)-T(b));
+    const vel=(soft?.26:style==='ballad'?.36:.34+.16*I)+rnd()*.12,st=T(b)+H(),du=Math.max(.09,T(b+len)-T(b));
     const isChange=segs.some(s=>s.beat===b);
     if(isChange&&b>=.5&&swingish(style)&&rnd()<.05+.12*I){const sl=rnd()<.6?1:-1;v.forEach(m=>pnote(T(b-.5)+H(),m+sl,bd*.3,vel*.8,o.piano));} // acorde de aproximación
     let vv=v.slice();
@@ -1165,7 +1177,10 @@ const RHY_DT=[
   [[0,.25],[.25,.25],[.5,.25],[.75,.25],[1,.25],[1.25,.25],[1.5,.25],[1.75,.25],[2,1.5]],
   [[.5,.25],[.75,.25],[1,.25],[1.25,.25],[1.5,.5],[2,.25],[2.25,.25],[2.5,.25],[2.75,.25],[3,1.5]],
 ];
-function newMotif(I,tempo){
+function newMotif(I,tempo,prev){
+  if(prev&&rnd()<.55){ // nueva idea nacida de la anterior: mismo ritmo con otro contorno, o mismo contorno con otro ritmo
+    if(rnd()<.5){const m=newMotif(I,tempo,null);return {r:prev.r.map(x=>x.slice()),c:prev.c.map((x,i)=>i&&rnd()<.5?m.c[Math.min(i,m.c.length-1)]:x),role:pick([1,2,3])};}
+    const m=newMotif(I,tempo,null),c=[0];for(let i=1;i<m.r.length;i++)c.push(prev.c[i%prev.c.length]||pick([1,-1]));return {r:m.r,c,role:prev.role};}
   const dt=tempo<125&&I>.86&&rnd()<.3,dense=!dt&&I>.5&&rnd()<(I-.5)*(tempo>220?1:1.5);
   const r=pick(dt?RHY_DT:dense?RHY_DENSE:RHY).map(x=>x.slice()),c=[0];
   let dir=rnd()<.5?1:-1,run=0;
@@ -1204,7 +1219,7 @@ function soloEngine(X,st,o){
       m.r.push([p,Math.max(1.5,Math.min(4,rem-p-.5))]);m.c.push(-1);closing=true;st.closed=true;}
     else if(st.closed){st.next=1e9;break;}
     else{
-      if(k===0||!st.motif){st.motif=newMotif(I,tempo);if(!st.theme)st.theme=st.motif;}
+      if(k===0||!st.motif){st.motif=newMotif(I,tempo,st.motif);if(!st.theme)st.theme=st.motif;}
       m=k===0?st.motif:k===1?vary(st.motif,'repeat'):k===2?vary(st.motif,pick(['displace','invert','fragment','augment'])):vary(st.motif,'extend');
       if(I>.45&&rnd()<(I-.35)*1.2){ // con más intensidad la frase sigue cantando por encima del cambio de acorde
         const last=m.r[m.r.length-1];last[1]=Math.min(last[1],.5);let p=last[0]+last[1];const n=2+Math.floor(rnd()*4*I),d=rnd()<.5?1:-1;
@@ -1212,8 +1227,8 @@ function soloEngine(X,st,o){
     }
     const lift=(k===2?2:k===3?4:0)+climb;let pend=0;
     m.r.forEach(([p,l],i)=>{st.q.push({at:st.next+p,len:l,step:m.c[i],first:i===0,last:i===m.r.length-1,role:m.role,lift:closing?climb*.3:lift,final:closing&&i===m.r.length-1});pend=Math.max(pend,p+l);});
-    const rest=Math.max(1,Math.round(((1-I)*3+rnd()*1.5)*2)/2);
-    st.n++;st.next+=Math.max(4,pend+rest);
+    const rest=Math.max(.5,Math.round(((o.breath??1)*(1.4-1.1*I)+rnd()*.6)*2)/2);
+    st.n++;st.next+=Math.max(2,pend+rest);
   }
   const later=[];
   for(const nt of st.q){
@@ -1233,14 +1248,24 @@ function soloEngine(X,st,o){
     else if(nt.len>=1||nt.last||(Number.isInteger(b)&&nt.len>=.5&&rnd()<.5)){let best=n,bd2=99;for(let x=n-2;x<=n+2;x++)if(tones.includes(mod12(x))&&Math.abs(x-n)<bd2){bd2=Math.abs(x-n);best=x;}n=best;}
     n=clamp(n,o.lo,hi);
     const t=Ts(b),t2=Ts(b+nt.len);
-    const vel=(nt.len>=1?.58:.46)+.18*I+(nt.last?.04:0)+rnd()*.07-(nt.len<.4?.06:0);
-    o.play(t+(rnd()-.5)*.008,n,Math.max(.06,(t2-t)*(nt.len>=1?1:.92)),vel);
+    const vel=(nt.len>=1?.56:.44)+.2*I+(nt.last?.05:0)+rnd()*.08-(nt.len<.4?.07:0);
+    const orn=o.orn||0,up=stepScale(n,1,sc),dn=n-1;
+    const P6=(x,m,len,v)=>{const a=Ts(b+x);o.play(a+(rnd()-.5)*.004,m,Math.max(.05,Ts(b+x+len)-a),v);};
+    if(!nt.final&&!nt.first&&nt.len>=1&&rnd()<orn*(.6+.6*I)){
+      const kind=rnd();
+      if(kind<.4){P6(0,n,1/6,vel*.85);P6(1/6,up,1/6,vel*.75);P6(2/6,n,1/6,vel*.8);P6(3/6,stepScale(n,-1,sc),1/6,vel*.8);P6(4/6,n,nt.len-4/6,vel);} // giro: do re do si do
+      else if(kind<.7){P6(0,up,1/6,vel*.8);P6(1/6,dn,1/6,vel*.8);P6(2/6,n,nt.len-2/6,vel);} // encierro: por arriba y por abajo
+      else{const tn=tones.filter(x=>true);const a2=stepScale(n,1,tn),a3=stepScale(a2,1,tn);P6(0,n,1/3,vel*.85);P6(1/3,a2,1/3,vel*.85);P6(2/3,a3,nt.len-2/3,vel);st.prev=a3;continue;} // tresillo de arpegio
+    }
+    else if(!nt.first&&nt.len>=.5&&nt.len<1&&rnd()<orn*.35){P6(0,n-1,1/6,vel*.7);P6(1/6,n,nt.len-1/6,vel);} // apoyatura cromática
+    else o.play(t+(rnd()-.5)*.008,n,Math.max(.06,(t2-t)*(nt.len>=1?1:.92)),vel);
     st.prev=n;
   }
   st.q=later;st.gb=end;
 }
-function pianoSolo(X){soloEngine(X,P.solo,{lo:60,hi:81,center:68,climb:9,play:(t,n,d,v)=>pnote(t,n,d,v,X.o.piano)});}
-function bassSolo(X){soloEngine(X,P.bsolo,{lo:38,hi:57,center:45,climb:6,play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.3,.1,1),X.o.bass)});}
+function saxSolo(X){soloEngine(X,P.ssolo,{lo:52,hi:77,center:63,climb:8,orn:.38,breath:1.1,play:(t,n,d,v)=>snote(t,n,d,v,X.o.sax)});}
+function pianoSolo(X){soloEngine(X,P.solo,{lo:60,hi:81,center:68,climb:9,orn:.22,breath:.7,play:(t,n,d,v)=>pnote(t,n,d,v,X.o.piano)});}
+function bassSolo(X){soloEngine(X,P.bsolo,{lo:38,hi:57,center:45,climb:6,orn:.08,breath:1,play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.3,.1,1),X.o.bass)});}
 const DCELLS=[
   [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.8],[0,'crash',.5]],
   [[0,'snare',.7],[.5,'kick',.6]],[[0,'snare',.5],[.25,'snare',.35],[.5,'snare',.55],[.75,'snare',.7]],[[.5,'snare',.8]],
@@ -1267,7 +1292,7 @@ function endingBar(X){
 }
 
 /* ============ transporte ============ */
-function newSession(){const s={};for(const k of ['piano','bass','drums','click']){const g=AU.ctx.createGain();g.connect(AU.ch[k]);s[k]=g;}return s;}
+function newSession(){const s={};for(const k of ['piano','bass','drums','click','sax']){const g=AU.ctx.createGain();g.connect(AU.ch[k]);s[k]=g;}return s;}
 function killSession(){const s=P.sess;if(!s)return;const t=AU.ctx.currentTime;for(const k in s){s[k].gain.setTargetAtTime(0,t,.015);}setTimeout(()=>{for(const k in s)try{s[k].disconnect();}catch(e){}},400);P.sess=null;}
 async function play(){
   if(!CUR.song){toast('Elige una canción en la Biblioteca');return;}
@@ -1275,7 +1300,7 @@ async function play(){
   if(AU.ctx.state!=='running')try{await AU.ctx.resume();}catch(e){}
   const lm=$('#loadMsg');let done=false;const tm=setTimeout(()=>{if(!done)lm.textContent='Cargando sonidos reales…';},250);
   await Promise.race([loadCurrent(),new Promise(r=>setTimeout(r,8000))]);done=true;clearTimeout(tm);lm.textContent='';
-  P.solo={lastK:-9};P.bsolo={lastK:-9};
+  P.solo={lastK:-9};P.bsolo={lastK:-9};P.ssolo={lastK:-9};
   P.cond=buildConductor();
   if(!P.cond.L){toast('Esta canción no tiene compases');return;}
   P.sess=newSession();P.k=P.resumeK||0;P.queue=[];P.endAt=0;P.nextT=AU.ctx.currentTime+.1;P.bassPrev=38;P.voicing=null;
@@ -1386,7 +1411,7 @@ function renderHead(){
   $('#topSub').textContent=s.title.length>26?s.title.slice(0,24)+'…':s.title;
 }
 function arrItems(){
-  if(S.mode==='full'){const SHORT={'Tema':'Tema','Tu solo':'Tu solo','Solo de piano':'Piano','Solo de bajo':'Bajo','Cambios de 4':'4s','Tema final':'Tema'};const it=buildParts().map((p,i)=>({t:(SHORT[p.name]||p.name)+(p.n>1?` ×${p.n}`:''),i,c:p.cls}));it.push({t:'Fin',i:it.length,c:'head'});return it;}
+  if(S.mode==='full'){const SHORT={'Tema':'Tema','Tu solo':'Tu solo','Solo de piano':'Piano','Solo de saxo':'Saxo','Solo de bajo':'Bajo','Cambios de 4':'4s','Tema final':'Tema'};const it=buildParts().map((p,i)=>({t:(SHORT[p.name]||p.name)+(p.n>1?` ×${p.n}`:''),i,c:p.cls}));it.push({t:'Fin',i:it.length,c:'head'});return it;}
   if(S.mode==='trades'){const a=S.tradeStart==='you';return [{t:`${a?'Tú':'Batería'} ${S.tradeLen}`,i:-1,c:a?'you':'drums'},{t:`${a?'Batería':'Tú'} ${S.tradeLen}`,i:-2,c:a?'drums':'you'},{t:'y así sigue',i:-3,c:''}];}
   const L=CUR.song?CUR.song.bars.length:0;
   return [{t:S.reps?`${S.reps} vueltas`:'Vueltas sin fin',i:-1,c:''},{t:S.loopOn?`Loop c. ${Math.min(S.loopA,S.loopB)}–${Math.max(S.loopA,S.loopB)}`:`${L} compases`,i:-2,c:''},{t:S.autoTempo?`+${S.incBpm} BPM/vuelta`:'Tempo fijo',i:-3,c:''}];
@@ -1416,6 +1441,7 @@ function changed(k){
   saveS();refreshControls();applyMix();
   if(['transpose','inst'].includes(k)){renderChart();renderHead();if(!P.playing)idleDisplay();}
   if(k==='style'){renderHead();}
+  if(k==='solo2'&&S.solo2==='sax'){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}
   if(k==='piano.tim'||k==='bass.tim'){if(AU.ctx)loadInst(getPath(k));else prefetch(getPath(k));}
   if(STRUCT.includes(k)){renderArr();renderChart();if(k==='mode'||k==='loopOn')P.startIdx=0;restartIfPlaying();}
 }
