@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#040b1c">
+<meta name="apple-mobile-web-app-title" content="Blue Changes">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Blue Changes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,10 +34,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   background:radial-gradient(120% 60% at 85% -10%,rgba(59,125,255,.35),transparent 60%),radial-gradient(90% 50% at -10% 30%,rgba(143,208,255,.10),transparent 60%),linear-gradient(180deg,#071330,var(--ink) 70%)}
 .appbar{padding:calc(env(safe-area-inset-top) + 10px) 18px 8px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:baseline;gap:6px;line-height:1}
-.brand b{font:900 30px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;background:var(--blue);color:#fff;padding:3px 8px 1px;transform:skew(-8deg)}
-.brand i{font:italic 24px/1 var(--serif);color:var(--sky)}
+.brand .logo{width:40px;height:40px;border-radius:11px;align-self:center;margin-right:4px;box-shadow:0 0 0 1px rgba(143,208,255,.25),0 6px 18px rgba(0,0,0,.45)}
+.brand b{font:900 25px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;background:var(--blue);color:#fff;padding:3px 8px 1px;transform:skew(-8deg)}
+.brand i{font:italic 20px/1 var(--serif);color:var(--sky)}
 .brand .ver{font:700 10px var(--ui);color:var(--mute);letter-spacing:.1em;align-self:flex-start}
-.appbar .sub{font:600 11px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);text-align:right}
+.appbar .sub{font:600 10px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.appbar .brand{flex:none}
 main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 20px}
 .view{display:none;flex-direction:column;gap:14px}
 .view.active{display:flex}
@@ -232,7 +238,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v22</small></div>
+    <div class="brand"><img class="logo" src="icons/logo-mark.png" alt="Blue Changes" width="40" height="40"><b>Blue</b><i>changes</i><small class="ver">v23</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
