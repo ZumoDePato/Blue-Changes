@@ -103,6 +103,17 @@ input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 .qsel select{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 17px var(--ui);padding:0;width:100%;outline:none;text-overflow:ellipsis}
 .qsel select option{color:#000}
 .loadmsg{font:600 12px var(--ui);color:var(--sky);min-height:0}
+.qsel.multi{padding-right:30px}
+.qsel.multi>button{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 17px var(--ui);padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+.qpanel{display:none;position:absolute;left:auto;right:0;bottom:calc(100% + 6px);width:210px;z-index:15;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.qsel.open .qpanel{display:flex;flex-direction:column}
+.qpanel button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:11px 10px;border-radius:10px;font:600 16px var(--ui);color:var(--text);text-align:left}
+.qpanel button:active{background:rgba(255,255,255,.06)}
+.qpanel .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--mute);flex:none;display:grid;place-items:center;font:700 13px var(--ui)}
+.qpanel button.on .box{background:var(--brass);border-color:var(--brass);color:#1a1205}
+.fours{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(4,11,28,.55);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px}
+.fours b{font:700 17px var(--ui)}
+.fours small{display:block;color:var(--mute);font-size:12.5px;margin-top:2px;line-height:1.3}
 /* arrangement */
 .arr{display:flex;gap:4px;align-items:stretch;flex-wrap:wrap}
 .arr div{flex:1 1 auto;min-width:0;padding:7px 6px 6px;border-radius:9px;background:rgba(4,11,28,.55);border:1px solid var(--line);font:700 11px var(--ui);letter-spacing:.04em;text-transform:uppercase;color:var(--mute);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -221,7 +232,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v18</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v19</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -269,10 +280,17 @@ a{color:var(--sky)}
       </div>
       <div class="quick">
         <label class="qsel"><small>Tono</small><select id="qKey" aria-label="Tonalidad"></select></label>
-        <label class="qsel"><small>Modo</small><select id="qMode" aria-label="Modo de práctica"><option value="free">Libre</option><option value="t4">Cambios de 4</option><option value="t8">Cambios de 8</option><option value="full-sax">Tema completo + saxo</option><option value="full-piano">Tema completo + piano</option><option value="full-bass">Tema completo + bajo</option><option value="full-trades">Tema completo + 4s batería</option><option value="full-none">Tema completo (solo tú)</option></select></label>
         <label class="qsel"><small>Estilo</small><select id="qStyle" aria-label="Estilo"><option value="auto">Auto</option><option value="swing">Swing</option><option value="bossa">Bossa nova</option><option value="ballad">Balada</option><option value="latin">Latin</option><option value="funk">Funk</option><option value="waltz">Vals jazz</option></select></label>
         <label class="qsel"><small>Cifrado para</small><select id="qInst" aria-label="Instrumento"><option value="0">C · concierto</option><option value="2">B♭ · trompeta, tenor</option><option value="9">E♭ · saxo alto</option><option value="7">F · trompa</option></select></label>
+        <div class="qsel multi" id="qSolos"><small>Solos</small><button type="button" id="qSolosBtn" aria-haspopup="listbox" aria-expanded="false">Ninguno</button>
+          <div class="qpanel" id="qSolosPanel" role="listbox" aria-multiselectable="true">
+            <button type="button" data-inst="sax" role="option"><span class="box"></span><span>Saxo</span></button>
+            <button type="button" data-inst="piano" role="option"><span class="box"></span><span>Piano</span></button>
+            <button type="button" data-inst="bass" role="option"><span class="box"></span><span>Bajo</span></button>
+            <button type="button" data-inst="drums" role="option"><span class="box"></span><span>Batería</span></button>
+          </div></div>
       </div>
+      <div class="fours"><div><b>Cuatros</b><small id="foursInfo">Turnos de 4 compases entre tú y la batería</small></div><button class="switch" id="foursSw" role="switch" aria-label="Cuatros"></button></div>
       <div class="arr" id="arr"></div>
       <div class="loadmsg" id="loadMsg"></div>
       <div class="mixrow">
@@ -287,9 +305,9 @@ a{color:var(--sky)}
     <!-- PRÁCTICA -->
     <section class="view" id="v-prac">
       <h2>Práctica</h2>
-      <div class="seg" data-key="mode"><button data-v="free">Libre</button><button data-v="trades">Cambios de 4</button><button data-v="full">Tema completo</button></div>
-
-      <div class="card" data-panel="free">
+      <h3>Práctica libre</h3>
+      <p class="hint">Cuando no hay solos ni cuatros activados, la canción suena en bucle para que improvises.</p>
+      <div class="card">
         <div class="row"><div class="lbl">Vueltas<small>∞ = sin parar</small></div>
           <div class="stepper" data-key="reps" data-min="0" data-max="30" data-inf="1"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
         <div class="row"><div class="lbl">Loop de compases<small>Elige el tramo en el cifrado con «Loop»</small></div><button class="switch" data-key="loopOn" role="switch" aria-label="Loop de compases"></button></div>
@@ -303,20 +321,19 @@ a{color:var(--sky)}
           <div class="stepper" data-key="maxBpm" data-min="60" data-max="360" data-step="10"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
       </div>
 
-      <div class="card" data-panel="trades">
-        <div class="row"><div class="lbl">Tramos de</div><div class="seg" data-key="tradeLen" style="min-width:150px"><button data-v="4">4 compases</button><button data-v="8">8</button></div></div>
-        <div class="row"><div class="lbl">Empieza</div><div class="seg" data-key="tradeStart" style="min-width:150px"><button data-v="you">Tú</button><button data-v="drums">Batería</button></div></div>
-        <p class="hint">Tú improvisas con la banda y en el tramo siguiente piano y bajo se callan para el solo de batería; luego vuelven a entrar todos. Así toda la vuelta.</p>
+      <h3>Cuatros</h3>
+      <div class="card">
+        <div class="row"><div class="lbl">Turnos de</div><div class="seg" data-key="tradeLen" style="min-width:150px"><button data-v="4">4 compases</button><button data-v="8">8</button></div></div>
+        <p class="hint">Con «Cuatros» activado en Tocar, tocáis por turnos y en orden: tú primero y después los instrumentos que marques en «Solos» (Saxo → Piano → …), una y otra vez hasta que todos hayan tocado lo mismo. Si no marcas ninguno, tocas tú y la batería. Después vuelve el tema y acaba.</p>
       </div>
 
-      <div class="card" data-panel="full">
+      <h3>Solos</h3>
+      <div class="card">
         <div class="row"><div class="lbl">Tus vueltas de solo</div>
           <div class="stepper" data-key="soloChoruses" data-min="1" data-max="8"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
-        <div class="row" style="flex-direction:column;align-items:stretch"><div class="lbl">Después de tu solo</div>
-          <div class="seg" data-key="solo2"><button data-v="sax">Solo saxo</button><button data-v="piano">Solo piano</button><button data-v="bass">Solo bajo</button><button data-v="trades">4s batería</button><button data-v="none">Nada</button></div></div>
-        <div class="row"><div class="lbl">Vueltas de ese solo</div>
+        <div class="row"><div class="lbl">Vueltas de cada solo</div>
           <div class="stepper" data-key="solo2Choruses" data-min="1" data-max="4"><button data-d="-1">−</button><output></output><button data-d="1">+</button></div></div>
-        <p class="hint">Tema → tu solo → solo de otro músico → tema final y acorde final. El track se para solo.</p>
+        <p class="hint">Con instrumentos marcados en «Solos» (y «Cuatros» apagado): tema → tu solo → el solo de cada instrumento, en el orden en que los marques → tema final.</p>
       </div>
 
       <h3>Estructura</h3>
@@ -694,9 +711,12 @@ const BUILTIN=[
 ].map(s=>({...s,fmt:'text',builtin:true,playlist:'Incluidas'}));
 
 /* ============ estado ============ */
-const DEF={mode:'free',reps:0,loopOn:false,loopA:1,loopB:4,autoTempo:false,incBpm:5,maxBpm:260,tradeLen:4,tradeStart:'you',soloChoruses:3,solo2:'piano',solo2Choruses:1,countIn:1,click:'off',style:'auto',kit:'auto',reverb:'club',transpose:0,inst:0,
+const DEF={mode:'free',reps:0,loopOn:false,loopA:1,loopB:4,autoTempo:false,incBpm:5,maxBpm:260,tradeLen:4,soloChoruses:2,fours:false,soloists:[],solo2Choruses:1,countIn:1,click:'off',style:'auto',kit:'auto',reverb:'club',transpose:0,inst:0,
   piano:{on:true,vol:1,tim:'piano'},bass:{on:true,vol:.85,tim:'upright'},drums:{on:true,vol:.8},sax:{vol:1},songId:'b-blues-f',tempos:{},playlist:'Todas'};
 let S=Object.assign({},DEF,store.get('bc_settings',{}));
+S.soloists=(Array.isArray(S.soloists)?S.soloists:[]).filter(x=>['sax','piano','bass','drums'].includes(x));S.fours=!!S.fours;
+function syncMode(){S.mode=S.fours?'trades':S.soloists.length?'full':'free';}
+syncMode();
 ['piano','bass','drums','sax'].forEach(k=>S[k]=Object.assign({},DEF[k],S[k]||{}));
 let USER=store.get('bc_songs',[]);
 let saveT;function saveS(){clearTimeout(saveT);saveT=setTimeout(()=>store.set('bc_settings',S),200);}
@@ -880,7 +900,7 @@ function loadInst(name){
   })();
   return LOADING[name];
 }
-function loadCurrent(){return Promise.all([loadInst(S.piano.tim),loadInst(S.bass.tim),loadInst('drums')].concat(S.mode==='full'&&S.solo2==='sax'?[loadInst('tenor')]:[]));}
+function loadCurrent(){return Promise.all([loadInst(S.piano.tim),loadInst(S.bass.tim),loadInst('drums')].concat(S.mode!=='free'&&(S.soloists.includes('sax'))?[loadInst('tenor')]:[]));}
 /* Saxo con articulaciones: ligados que se funden, scoop (entrar desde abajo), caída al final de frase,
    soplido al empezar, growl en notas largas y fuertes, vibrato que entra tarde y se ensancha,
    y un timbre más oscuro cuanto más suave se toca. */
@@ -947,20 +967,30 @@ function segsFor(bar,tr){
   const B=bar.ts||4;const chords=bar.chords.slice(0,B),d=distribute(chords.length,B);let beat=0;
   return chords.map((c,i)=>{const s={c:c.nc?{nc:true}:{pc:mod12(c.pc+tr),q:c.q,bass:c.bass!=null?mod12(c.bass+tr):null},beat,dur:d[i]};beat+=d[i];return s;});
 }
-function buildParts(){
-  const p=[{name:'Tema',info:'Toca la melodía',role:'band',tone:'head',n:1,cls:'head'},{name:'Tu solo',info:'Improvisa',role:'band',tone:'you',n:S.soloChoruses,cls:'you'}];
-  if(S.solo2==='piano')p.push({name:'Solo de piano',info:'Escucha y acompaña',role:'pianosolo',tone:'piano',n:S.solo2Choruses,cls:'solo2'});
-  if(S.solo2==='sax')p.push({name:'Solo de saxo',info:'Escucha y acompaña',role:'saxsolo',tone:'piano',n:S.solo2Choruses,cls:'solo2'});
-  if(S.solo2==='bass')p.push({name:'Solo de bajo',info:'Escucha y acompaña',role:'basssolo',tone:'bass',n:S.solo2Choruses,cls:'solo2'});
-  if(S.solo2==='trades')p.push({name:'Cambios de 4',info:'Tú y la batería',role:'trades',tone:'you',n:S.solo2Choruses,cls:'drums'});
-  p.push({name:'Tema final',info:'Melodía otra vez',role:'band',tone:'head',n:1,cls:'head'});
+const SOLOROLE={sax:'saxsolo',piano:'pianosolo',bass:'basssolo',drums:'drumsolo'};
+const SOLONAME={sax:'Solo de saxo',piano:'Solo de piano',bass:'Solo de bajo',drums:'Solo de batería'};
+const PNAME={you:'Tú',sax:'Saxo',piano:'Piano',bass:'Bajo',drums:'Batería'};
+const PTONE={you:'you',sax:'piano',piano:'piano',bass:'bass',drums:'drums'};
+const tradePlayers=()=>['you'].concat(S.soloists.length?S.soloists:['drums']);
+function songLenFull(){const f=expandForm(CUR.song.bars);return f.length||CUR.song.bars.length;}
+function tradeChoruses(L){const n=tradePlayers().length,T=S.tradeLen;let c=Math.max(1,S.soloChoruses);for(let i=0;i<16;i++,c++)if((c*L)%(T*n)===0)return c;return Math.max(1,S.soloChoruses);} // vueltas hasta que cuadre
+function buildParts(L){
+  L=L||songLenFull();
+  const head={name:'Tema',info:'Toca la melodía',role:'band',tone:'head',n:1,cls:'head'};
+  const p=[head];
+  if(S.fours){const pl=tradePlayers();p.push({name:'Cuatros',info:pl.map(x=>PNAME[x]).join(' → '),role:'trades',tone:'you',n:tradeChoruses(L),cls:'drums',players:pl});}
+  else{
+    p.push({name:'Tu solo',info:'Improvisa',role:'band',tone:'you',n:S.soloChoruses,cls:'you'});
+    S.soloists.forEach(id=>p.push({name:SOLONAME[id],info:'Escucha y acompaña',role:SOLOROLE[id],tone:PTONE[id],n:S.solo2Choruses,cls:id==='drums'?'drums':'solo2'}));
+  }
+  p.push(Object.assign({},head,{name:'Tema final',info:'Melodía otra vez'}));
   return p;
 }
 function buildConductor(){
   const song=CUR.song,bars=song.bars;
   let form=expandForm(bars);if(!form.length)form=bars.map((_,i)=>i);
   if(S.mode==='free'&&S.loopOn){const a=clamp(Math.min(S.loopA,S.loopB)-1,0,bars.length-1),b=clamp(Math.max(S.loopA,S.loopB)-1,0,bars.length-1);form=[];for(let i=a;i<=b;i++)form.push(i);}
-  const L=form.length,C=S.countIn,parts=buildParts();
+  const L=form.length,C=S.countIn,parts=buildParts(L);
   let off=0;if(S.mode==='free'&&P.startIdx>0){const f=form.indexOf(P.startIdx);if(f>0)off=f;}
   const key=parseKey(song.key);
   const twoFeel=rnd()<.7;
@@ -979,17 +1009,14 @@ function buildConductor(){
         const firstCh=Math.floor(off/L);const inc=S.autoTempo?Math.max(0,ch-firstCh)*S.incBpm:0;
         return mk({role:'band',idx:form[pos],part:'Práctica',info:`Vuelta ${ch+1}${S.reps?' de '+S.reps:''}`,tone:'you',segStart:pos===0,fillAfter:pos===L-1,tempo:inc?Math.min(Math.max(S.maxBpm,P.tempo),P.tempo+inc):P.tempo,chorus:ch,pos,inten:.35+.4*Math.min(1,(ch-firstCh+pos/L)/3)});
       }
-      if(S.mode==='trades'){
-        const T=S.tradeLen,seg=Math.floor(j/T),you=(seg%2===0)===(S.tradeStart==='you'),ch=Math.floor(j/L),pos=j%L;
-        return mk({role:you?'band':'drumsolo',idx:form[pos],part:you?'Tú':'Batería',info:you?`Improvisa ${T} compases`:`Solo de batería · ${T} compases`,tone:you?'you':'drums',segStart:j%T===0,segEnd:j%T===T-1,fillAfter:false,chorus:ch,pos,inten:.65});
-      }
       let acc=0;
       for(let pi=0;pi<parts.length;pi++){const p=parts[pi],n=p.n*L;
-        if(j<acc+n){const r=j-acc,ch=Math.floor(r/L),pos=r%L;let role=p.role,part=p.name,tone=p.tone,info=`${p.info} · vuelta ${ch+1} de ${p.n}`,segStart=pos===0,segEnd=false;
-          if(role==='trades'){const seg=Math.floor(r/4),you=seg%2===0;role=you?'band':'drumsolo';part=you?'Tú (4s)':'Batería (4s)';tone=you?'you':'drums';info=`Cambios de 4 · vuelta ${ch+1} de ${p.n}`;segStart=r%4===0;segEnd=r%4===3;}
+        if(j<acc+n){const r=j-acc,ch=Math.floor(r/L),pos=r%L;let role=p.role,part=p.name,tone=p.tone,info=`${p.info} · vuelta ${ch+1} de ${p.n}`,segStart=pos===0,segEnd=false,turn=0,turnPos=0;
+          if(role==='drumsolo'){segStart=pos%4===0;segEnd=pos%4===3;}
+          if(role==='trades'){const T=S.tradeLen,pl=p.players,g=Math.floor(r/T),pid=pl[g%pl.length],tp=r%T;role=pid==='you'?'band':SOLOROLE[pid];tone=PTONE[pid];part=PNAME[pid];info=`Cuatros · vuelta ${ch+1} de ${p.n}`;segStart=tp===0;segEnd=tp===T-1;turn=T;turnPos=tp;}
           const prog=(ch*L+pos)/(p.n*L),head=p.cls==='head';
           const inten=head?(pi===0?.22:.38):p.role==='trades'?.7:arc(prog);
-          return mk({role,idx:form[pos],part,info,tone,segStart,segEnd,fillAfter:pos===L-1,partIndex:pi,chorus:ch,pos,sectionStart:pos===0&&ch===0,prog,inten,head,partBars:p.n*L,partPos:r,twoFeel:head&&pi===0&&twoFeel&&pos<L-4&&P.tempo<230});}
+          return mk({role,idx:form[pos],part,info,tone,segStart,segEnd,fillAfter:pos===L-1,partIndex:pi,chorus:ch,pos,sectionStart:pos===0&&ch===0,prog,inten,head,partBars:p.n*L,partPos:r,turn,turnPos,twoFeel:head&&pi===0&&twoFeel&&pos<L-4&&P.tempo<230});}
         acc+=n;}
       return j===acc?this.ending():null;
     },
@@ -1449,7 +1476,8 @@ function lineEngine(X,st,o){
   };
   const W=o.w;
   // longitud de frase en compases, alineada con los grupos de 4 compases del tema
-  const phraseLen=at=>{const pos=bar.pos??0,inBar=at-st.gb,toGroup=(4-pos%4)*B-inBar;
+  const phraseLen=at=>{if(bar.turn){const left=(bar.turn-bar.turnPos)*B-(at-st.gb);return Math.max(2.5,left-1.5);} // en los cuatros, cada frase cabe en el turno
+    const pos=bar.pos??0,inBar=at-st.gb,toGroup=(4-pos%4)*B-inBar;
     const r=rnd();
     if(r<.8){ // 4 a 5 compases, la longitud que mejor caiga con el final de un grupo de 4
       let best=4*B,bs=1e9;for(const L of [4*B,4.5*B,5*B]){let d=1e9;for(let m=0;m<3;m++)d=Math.min(d,Math.abs(toGroup+4*B*m-L));d+=rnd()*.8;if(d<bs){bs=d;best=L;}}
@@ -1646,13 +1674,14 @@ function renderHead(){
   $('#topSub').textContent=s.title.length>26?s.title.slice(0,24)+'…':s.title;
 }
 function arrItems(){
-  if(S.mode==='full'){const SHORT={'Tema':'Tema','Tu solo':'Tu solo','Solo de piano':'Piano','Solo de saxo':'Saxo','Solo de bajo':'Bajo','Cambios de 4':'4s','Tema final':'Tema'};const it=buildParts().map((p,i)=>({t:(SHORT[p.name]||p.name)+(p.n>1?` ×${p.n}`:''),i,c:p.cls}));it.push({t:'Fin',i:it.length,c:'head'});return it;}
-  if(S.mode==='trades'){const a=S.tradeStart==='you';return [{t:`${a?'Tú':'Batería'} ${S.tradeLen}`,i:-1,c:a?'you':'drums'},{t:`${a?'Batería':'Tú'} ${S.tradeLen}`,i:-2,c:a?'drums':'you'},{t:'y así sigue',i:-3,c:''}];}
+  if(S.mode!=='free'){
+    const SHORT={'Tema':'Tema','Tu solo':'Tú','Solo de piano':'Piano','Solo de saxo':'Saxo','Solo de bajo':'Bajo','Solo de batería':'Batería','Cuatros':'Cuatros','Tema final':'Tema'};
+    const it=buildParts().map((p,i)=>({t:(SHORT[p.name]||p.name)+(p.n>1?` ×${p.n}`:''),i,c:p.cls}));it.push({t:'Fin',i:it.length,c:'head'});return it;}
   const L=CUR.song?CUR.song.bars.length:0;
   return [{t:S.reps?`${S.reps} vueltas`:'Vueltas sin fin',i:-1,c:''},{t:S.loopOn?`Loop c. ${Math.min(S.loopA,S.loopB)}–${Math.max(S.loopA,S.loopB)}`:`${L} compases`,i:-2,c:''},{t:S.autoTempo?`+${S.incBpm} BPM/vuelta`:'Tempo fijo',i:-3,c:''}];
 }
 function renderArr(){const h=arrItems().map(x=>`<div class="${x.c}" data-i="${x.i}">${esc(x.t)}</div>`).join('');$('#arr').innerHTML=h;$('#arr2').innerHTML=h;
-  $('#modeLbl').textContent={free:'Libre',trades:`Cambios de ${S.tradeLen}`,full:{sax:'+ Saxo',piano:'+ Piano',bass:'+ Bajo',trades:'+ 4s',none:'Completo'}[S.solo2]||'Completo'}[S.mode];
+  $('#modeLbl').textContent={free:'Libre',trades:'Cuatros',full:'Solos'}[S.mode];
   $('#chartHint').style.display=S.mode==='free'?'':'none';}
 function renderTempo(){$('#bpm').textContent=P.tempo;$('#tempoLbl').textContent=P.tempo;$('#tempoRange').value=P.tempo;}
 function getPath(k){return k.split('.').reduce((o,p)=>o?.[p],S);}
@@ -1665,18 +1694,16 @@ function refreshControls(){
     else if(el.classList.contains('stepper')){let t=String(v);if(el.dataset.inf&&v===0)t='∞';if(el.dataset.sign&&v>0)t='+'+v;el.querySelector('output').textContent=t;}
     else if(el.type==='range')el.value=v;
   });
-  $$('[data-panel]').forEach(p=>p.style.display=p.dataset.panel===S.mode?'':'none');
   $$('[data-mix]').forEach(b=>b.classList.toggle('on',S[b.dataset.mix].on));
   renderQuick();
   $('#loopSel').classList.toggle('on',!!UI.loopSel);
   $('#loopSel').textContent=UI.loopSel===1?'Toca inicio':UI.loopSel===2?'Toca final':(S.loopOn?`Loop ${Math.min(S.loopA,S.loopB)}–${Math.max(S.loopA,S.loopB)}`:'Loop');
 }
-const STRUCT=['mode','reps','loopOn','loopA','loopB','tradeLen','tradeStart','soloChoruses','solo2','solo2Choruses','countIn','autoTempo','incBpm','maxBpm'];
+const STRUCT=['mode','reps','loopOn','loopA','loopB','tradeLen','soloChoruses','solo2Choruses','countIn','autoTempo','incBpm','maxBpm'];
 function changed(k){
   saveS();refreshControls();applyMix();
   if(['transpose','inst'].includes(k)){renderChart();renderHead();if(!P.playing)idleDisplay();}
   if(k==='style'){renderHead();}
-  if(k==='solo2'&&S.solo2==='sax'){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}
   if(k==='piano.tim'||k==='bass.tim'){if(AU.ctx)loadInst(getPath(k));else prefetch(getPath(k));}
   if(STRUCT.includes(k)){renderArr();renderChart();if(k==='mode'||k==='loopOn')P.startIdx=0;restartIfPlaying();}
 }
@@ -1771,7 +1798,11 @@ function renderQuick(){
   const s=CUR.song;if(!s)return;const k=parseKey(s.key);let h='';
   for(let t=-6;t<=6;t++){const pc=mod12(k.pc+t);h+=`<option value="${t}">${spell(pc,sharpsFor(pc,k.minor))}${k.minor?'m':''}${t===0?' · original':` (${t>0?'+':''}${t})`}</option>`;}
   const qk=$('#qKey');qk.innerHTML=h;qk.value=String(S.transpose);
-  $('#qMode').value=S.mode==='trades'?(S.tradeLen===8?'t8':'t4'):S.mode==='full'?'full-'+S.solo2:S.mode;
+  const NM={sax:'Saxo',piano:'Piano',bass:'Bajo',drums:'Batería'};
+  $('#qSolosBtn').textContent=S.soloists.length?S.soloists.map(x=>NM[x]).join(', '):'Ninguno';
+  $$('#qSolosPanel [data-inst]').forEach(b=>{const i=S.soloists.indexOf(b.dataset.inst);b.classList.toggle('on',i>=0);b.setAttribute('aria-selected',i>=0);b.querySelector('.box').textContent=i>=0?String(i+1):'';});
+  const fs=$('#foursSw');fs.classList.toggle('on',S.fours);fs.setAttribute('aria-checked',S.fours);
+  $('#foursInfo').textContent=S.fours?`Turnos de ${S.tradeLen} compases: ${tradePlayers().map(x=>PNAME[x]).join(' → ')}`:`Turnos de ${S.tradeLen} compases entre tú y los instrumentos de «Solos»`;
   $('#qStyle').value=S.style;$('#qInst').value=String(S.inst);
 }
 function importText(txt){
@@ -1830,7 +1861,7 @@ $$('.switch[data-key]').forEach(el=>el.addEventListener('click',()=>{setPath(el.
 $$('.stepper[data-key]').forEach(el=>el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=el.dataset.key,step=+(el.dataset.step||1);let max=+el.dataset.max;if(el.dataset.bar&&CUR.song)max=CUR.song.bars.length;setPath(k,clamp(getPath(k)+(+b.dataset.d)*step,+el.dataset.min,max));changed(k);}));
 $$('input[type=range][data-key]').forEach(el=>el.addEventListener('input',()=>{setPath(el.dataset.key,+el.value);saveS();applyMix();}));
 $$('[data-mix]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.mix;S[k].on=!S[k].on;changed(k+'.on');}));
-$('#loopSel').addEventListener('click',()=>{if(UI.loopSel){UI.loopSel=0;}else{UI.loopSel=1;if(S.mode!=='free'){S.mode='free';changed('mode');}toast('Toca el primer compás del loop');}refreshControls();});
+$('#loopSel').addEventListener('click',()=>{if(UI.loopSel){UI.loopSel=0;}else{if(S.mode!=='free'){toast('El loop solo funciona sin solos ni cuatros');return;}UI.loopSel=1;toast('Toca el primer compás del loop');}refreshControls();});
 $('#chart').addEventListener('click',e=>{
   const el=e.target.closest('.bar[data-i]');if(!el)return;const i=+el.dataset.i;
   if(UI.loopSel===1){S.loopA=i+1;S.loopB=i+1;UI.loopSel=2;refreshControls();renderChart();toast('Ahora toca el último compás');return;}
@@ -1845,7 +1876,11 @@ $('#catList').addEventListener('click',e=>{const b=e.target.closest('.imp');cons
 $('#qKey').addEventListener('change',e=>{S.transpose=+e.target.value;changed('transpose');});
 $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style');});
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
-$('#qMode').addEventListener('change',e=>{const v=e.target.value;if(v==='t4'||v==='t8'){S.mode='trades';S.tradeLen=v==='t8'?8:4;}else if(v.startsWith('full-')){S.mode='full';S.solo2=v.slice(5);if(S.solo2==='sax'){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}else S.mode=v;changed('mode');});
+function applySoloMode(){syncMode();P.startIdx=0;changed('mode');renderQuick();if(S.soloists.includes('sax')){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}
+$('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();const o=$('#qSolos').classList.toggle('open');$('#qSolosBtn').setAttribute('aria-expanded',o);});
+$('#qSolosPanel').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-inst]');if(!b)return;const id=b.dataset.inst,i=S.soloists.indexOf(id);if(i>=0)S.soloists.splice(i,1);else S.soloists.push(id);applySoloMode();});
+document.addEventListener('click',e=>{if(!e.target.closest('#qSolos')){$('#qSolos').classList.remove('open');$('#qSolosBtn').setAttribute('aria-expanded','false');}});
+$('#foursSw').addEventListener('click',()=>{S.fours=!S.fours;applySoloMode();});
 $('#plChips').addEventListener('click',e=>{if(e.target.closest('#addFolder')){openFolderSheet(null);return;}const b=e.target.closest('[data-pl]');if(!b)return;S.playlist=b.dataset.pl;saveS();renderLib();});
 $('#fSave').addEventListener('click',saveFolder);
 $('#fName').addEventListener('keydown',e=>{if(e.key==='Enter')saveFolder();});
