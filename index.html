@@ -885,7 +885,7 @@ function scheduleBar(bar,t0,next){
   const segs=bar.segs;
   const nextC=next&&next.segs&&next.segs.length?next.segs[0].c:(segs.length?segs[segs.length-1].c:null);
   const chordAt=b=>{let s=null;for(const x of segs)if(x.beat<=b+1e-6)s=x;return s?s.c:null;};
-  const X={bar,B,T,H,bd,style,kit,segs,nextC,chordAt,o};
+  const X={bar,B,T,H,bd,style,kit,segs,nextC,chordAt,o,t0,swung};
   if(bar.role==='countin'){
     const two=S.countIn===2&&bar.ci===0;
     for(let b=0;b<B;b++){if(two&&b%2)continue;hit(b===0?'clickHi':'clickLo',T(b),.9,o.click);hit('rim',T(b),.35,o.drums);}
@@ -1006,58 +1006,73 @@ function pianoLH(X){
 }
 /* Solos: líneas de corcheas que caen en notas del acorde en cada tiempo,
    unidas por notas de paso y aproximaciones cromáticas, con frases y respiraciones. */
-const sameCh=(a,b)=>a&&b&&a.pc===b.pc&&a.q===b.q;
-function chordStartsAt(X,b){return b===0||X.segs.some(s=>s.beat===b);}
-function soloLine(X,st,o){
-  const {B,T,H,chordAt,nextC}=X;
-  const ctAt=b=>b<B?chordAt(b):nextC;
-  const sev=I=>I.sev??(I.kind==='min'?10:11);
-  const target=(c,ref,dir,guide)=>{
-    const I=chordInfo(c.q);let iv=guide?[I.third,sev(I)]:[0,I.third,I.fifth,sev(I)];
-    if(!guide&&rnd()<.3&&I.kind!=='hdim'&&I.kind!=='dim')iv.push(I.ext.includes(13)?1:I.ext.includes(15)?3:2);
-    const pcs=iv.map(i=>mod12(c.pc+i));let best=null,bs=1e9;
-    for(let n=o.lo;n<=o.hi;n++){if(n===ref||!pcs.includes(mod12(n)))continue;const d=n-ref;let sc=Math.abs(d-dir*2.5);if(Math.sign(d)!==dir)sc+=3;if(Math.abs(d)>7)sc+=8;sc+=rnd()*1.5;if(sc<bs){bs=sc;best=n;}}
-    return best??ref;
-  };
-  const play=(b,n,len,v)=>{const t=T(b);o.play(t+H()*.4,n,Math.max(.06,(T(b+len)-t)*1.03),v);st.note=n;};
-  const newPhrase=()=>{st.on=true;st.left=o.minLen+Math.floor(rnd()*(o.maxLen-o.minLen+1));};
-  for(let b=0;b<B;b++){
-    const c=chordAt(b);if(!c||c.nc){st.on=false;st.pend=null;continue;}
-    if(!st.on){
-      if(st.rest>1){st.rest--;continue;}
-      if(st.rest===1){st.rest=0;
-        if(rnd()<.6){const nc=ctAt(b+1)||c,tg=target(nc,st.note,st.dir,!sameCh(nc,c));const ap=tg+(rnd()<.5?1:-1);play(b+.5,ap,.5,.56);st.pend=tg;newPhrase();}
-        continue;}
-      newPhrase();
-    }
-    let D=st.pend??target(c,st.note,st.dir,chordStartsAt(X,b)&&rnd()<.7);st.pend=null;
-    if(D>o.hi-3)st.dir=-1;else if(D<o.lo+3)st.dir=1;else if(rnd()<o.turn)st.dir*=-1;
-    if(--st.left<=0){const len=Math.min(rnd()<.5?1:1.5,B-b);play(b,D,len,.64);st.on=false;st.rest=o.restMin+Math.floor(rnd()*(o.restMax-o.restMin+1));continue;}
-    const nc=ctAt(b+1)||c,r=rnd();
-    if(r<o.quarterP){play(b,D,1,.6);continue;}
-    const next=target(nc,D,st.dir,!sameCh(nc,c)&&rnd()<.7),gap=next-D;
-    if(r<o.quarterP+o.tripP){
-      let up=stepScale(next,1,chordScale(nc));if(up>o.hi+1)up=next+1;const dn=next-1;
-      play(b,D,1/3,.58);play(b+1/3,up,1/3,.5);play(b+2/3,dn,1/3,.56);st.pend=next;continue;}
-    if(r<o.quarterP+o.tripP+o.arpP&&Math.abs(gap)>=4){
-      const a=stepScale(D,Math.sign(gap),chordTones(c));
-      if(a!==next&&Math.abs(next-a)<=4){play(b,D,.5,.55);play(b+.5,a,.5,.62);st.pend=next;continue;}}
-    let U;
-    if(Math.abs(gap)>=3&&rnd()<.65){U=stepScale(D,Math.sign(gap),chordScale(c));if(Math.abs(next-U)>3)U=next-Math.sign(gap);}
-    else if(rnd()<.55)U=next+(gap>=0?-1:1);
-    else U=stepScale(next,gap>=0?1:-1,chordScale(nc));
-    if(U===next||U===D)U=next+(gap>=0?-1:1);
-    play(b,D,.5,.5+rnd()*.08);play(b+.5,U,.5,.6+rnd()*.08);st.pend=next;
+/* ============ solos con motivos ============
+   Como improvisaría un cantante: un motivo corto (ritmo + contorno), respuesta, secuencia sobre
+   el acorde nuevo, variación (desplazado, invertido, fragmentado) y final en nota larga del acorde.
+   Mucho silencio entre frases y corcheas con muy poco swing. */
+const RHY=[ // [posición en tiempos, duración] dentro de una frase de 2 compases
+  [[0,1],[1,.5],[1.5,1.5],[3,1]],
+  [[.5,.5],[1,.5],[1.5,.5],[2,2]],
+  [[0,1.5],[1.5,.5],[2,1],[3,1.5]],
+  [[0,2/3],[2/3,2/3],[4/3,2/3],[2,2]],
+  [[1,.5],[1.5,.5],[2,.5],[2.5,1.5],[4.5,.5],[5,1.5]],
+  [[0,.5],[.5,.5],[1,1],[2.5,.5],[3,1.5]],
+  [[0,2.5],[3,.5],[3.5,.5],[4,1.5]],
+  [[.5,1],[1.5,1],[2.5,.5],[3,2]],
+  [[0,1],[1,1],[2,.5],[2.5,.5],[3,2]],
+];
+function newMotif(){
+  const r=pick(RHY).map(x=>x.slice()),c=[0];
+  for(let i=1;i<r.length;i++){const w=rnd();let st=w<.35?1:w<.7?-1:w<.8?2:w<.9?-2:w<.95?3:-3;
+    if(Math.abs(c[i-1]-(c[i-2]??0))>=3)st=-Math.sign(c[i-1]-(c[i-2]??0));c.push(st);}
+  return {r,c,role:pick([1,1,2,2,0,3])}; // role: grado del acorde donde empieza (0 raíz,1 tercera,2 quinta,3 séptima)
+}
+function vary(m,kind){
+  let r=m.r.map(x=>x.slice()),c=m.c.slice();
+  if(kind==='displace'){const d=pick([.5,1]);r=r.map(([p,l])=>[p+d,l]);}
+  else if(kind==='invert')c=c.map((x,i)=>i?-x:0);
+  else if(kind==='fragment'){const n=Math.min(3,r.length),f=r.slice(0,n),fc=c.slice(0,n);const off=f[n-1][0]+f[n-1][1]+.5;
+    r=f.concat(f.map(([p,l])=>[p+off,l]));c=fc.concat([pick([1,-1,2])],fc.slice(1));r[r.length-1][1]=Math.max(1.5,r[r.length-1][1]);}
+  else if(kind==='extend'){const last=r[r.length-1];last[1]=.5;let p=last[0]+.5;r.push([p,.5],[p+.5,.5],[p+1,2]);c.push(-1,-1,-1);}
+  else if(kind==='augment'){r=r.map(([p,l])=>[p*1.5,l*1.5]);}
+  return {r,c,role:m.role};
+}
+function soloEngine(X,st,o){
+  const {B,chordAt,bar,t0,bd,swung}=X;
+  if(st.lastK!==P.k-1){st.gb=0;st.next=st.lead??1;st.q=[];st.n=0;st.motif=null;st.prev=o.center;}
+  st.lastK=P.k;
+  const slot=B===3?6:8,end=st.gb+B,sw=swung?.57:.5;
+  const Ts=b=>{const fb=Math.floor(b+1e-6),fr=b-fb;return t0+(fb+(Math.abs(fr-.5)<1e-3?sw:fr))*bd;};
+  while(st.next<end){ // planifica la siguiente frase
+    const k=st.n%4;
+    if(k===0||!st.motif)st.motif=newMotif();
+    const m=k===0?st.motif:k===1?vary(st.motif,'repeat'):k===2?vary(st.motif,pick(['displace','invert','fragment','augment'])):vary(st.motif,'extend');
+    const lift=k===2?3:k===3?5:0;
+    m.r.forEach(([p,l],i)=>{if(p<slot-.5)st.q.push({at:st.next+p,len:Math.min(l,slot-p),step:m.c[i],first:i===0,last:i===m.r.length-1,role:m.role,lift,k});});
+    st.n++;st.next+=slot*(rnd()<.2?1.5:1);
   }
+  const later=[];
+  for(const nt of st.q){
+    if(nt.at>=end){later.push(nt);continue;}
+    const b=nt.at-st.gb;if(b<0)continue;
+    const c=chordAt(Math.max(0,Math.floor(b)));if(!c||c.nc)continue;
+    const I=chordInfo(c.q),sc=chordScale(c),tones=chordTones(c);
+    let n;
+    if(nt.first){const iv=[0,I.third,I.fifth,I.sev??(I.kind==='min'?10:11)][nt.role];n=nearestNote(mod12(c.pc+iv),(st.prev*.5+o.center*.5)+nt.lift,o.lo,o.hi);}
+    else{n=st.prev;const d=Math.sign(nt.step)||1;for(let s=0;s<Math.abs(nt.step);s++)n=stepScale(n,d,sc);
+      if(n>o.hi||n<o.lo){n=st.prev;for(let s=0;s<Math.abs(nt.step);s++)n=stepScale(n,-d,sc);}}
+    if(nt.len>=1||nt.last||Number.isInteger(b)&&nt.len>=.5&&rnd()<.5){ // notas largas y finales: del acorde
+      let best=n,bd2=99;for(let x=n-2;x<=n+2;x++)if(tones.includes(mod12(x))&&Math.abs(x-n)<bd2){bd2=Math.abs(x-n);best=x;}n=best;}
+    n=clamp(n,o.lo,o.hi);
+    const t=Ts(b),t2=Ts(b+nt.len);
+    const vel=(nt.len>=1?.62:.5)+(nt.k===2?.06:0)+(nt.last?.05:0)+rnd()*.08;
+    o.play(t+(rnd()-.5)*.008,n,Math.max(.08,(t2-t)*(nt.len>=1?1:.92)),vel);
+    st.prev=n;
+  }
+  st.q=later;st.gb=end;
 }
-function pianoSolo(X){
-  soloLine(X,P.solo,{lo:60,hi:86,minLen:5,maxLen:12,restMin:1,restMax:3,turn:.12,quarterP:.07,tripP:.1,arpP:.12,
-    play:(t,n,d,v)=>pnote(t,n,d,v,X.o.piano)});
-}
-function bassSolo(X){
-  soloLine(X,P.bsolo,{lo:38,hi:62,minLen:3,maxLen:7,restMin:1,restMax:3,turn:.15,quarterP:.32,tripP:.05,arpP:.15,
-    play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.25,.1,1),X.o.bass)});
-}
+function pianoSolo(X){soloEngine(X,P.solo,{lo:62,hi:81,center:70,play:(t,n,d,v)=>pnote(t,n,d,v,X.o.piano)});}
+function bassSolo(X){soloEngine(X,P.bsolo,{lo:40,hi:57,center:47,play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.3,.1,1),X.o.bass)});}
 const DCELLS=[
   [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.8],[0,'crash',.5]],
   [[0,'snare',.7],[.5,'kick',.6]],[[0,'snare',.5],[.25,'snare',.35],[.5,'snare',.55],[.75,'snare',.7]],[[.5,'snare',.8]],
@@ -1092,7 +1107,7 @@ async function play(){
   if(AU.ctx.state!=='running')try{await AU.ctx.resume();}catch(e){}
   const lm=$('#loadMsg');let done=false;const tm=setTimeout(()=>{if(!done)lm.textContent='Cargando sonidos reales…';},250);
   await Promise.race([loadCurrent(),new Promise(r=>setTimeout(r,8000))]);done=true;clearTimeout(tm);lm.textContent='';
-  P.solo={note:72,dir:-1,on:false,rest:1,left:0,pend:null};P.bsolo={note:48,dir:-1,on:false,rest:1,left:0,pend:null};
+  P.solo={lastK:-9};P.bsolo={lastK:-9};
   P.cond=buildConductor();
   if(!P.cond.L){toast('Esta canción no tiene compases');return;}
   P.sess=newSession();P.k=P.resumeK||0;P.queue=[];P.endAt=0;P.nextT=AU.ctx.currentTime+.1;P.bassPrev=38;P.voicing=null;
