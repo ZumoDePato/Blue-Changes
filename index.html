@@ -898,7 +898,7 @@ function buildConductor(){
           if(role==='trades'){const seg=Math.floor(r/4),you=seg%2===0;role=you?'band':'drumsolo';part=you?'Tú (4s)':'Batería (4s)';tone=you?'you':'drums';info=`Cambios de 4 · vuelta ${ch+1} de ${p.n}`;segStart=r%4===0;segEnd=r%4===3;}
           const prog=(ch*L+pos)/(p.n*L),head=p.cls==='head';
           const inten=head?(pi===0?.22:.38):p.role==='trades'?.7:arc(prog);
-          return mk({role,idx:form[pos],part,info,tone,segStart,segEnd,fillAfter:pos===L-1,partIndex:pi,chorus:ch,pos,sectionStart:pos===0&&ch===0,prog,inten,head,twoFeel:head&&pi===0&&twoFeel&&pos<L-4&&P.tempo<230});}
+          return mk({role,idx:form[pos],part,info,tone,segStart,segEnd,fillAfter:pos===L-1,partIndex:pi,chorus:ch,pos,sectionStart:pos===0&&ch===0,prog,inten,head,partBars:p.n*L,partPos:r,twoFeel:head&&pi===0&&twoFeel&&pos<L-4&&P.tempo<230});}
         acc+=n;}
       return j===acc?this.ending():null;
     },
@@ -1154,7 +1154,7 @@ const RHY=[
   [[0,1],[1,.5],[1.5,1.5],[3,1]],[[.5,.5],[1,.5],[1.5,.5],[2,2]],[[0,1.5],[1.5,.5],[2,1],[3,1.5]],
   [[0,2/3],[2/3,2/3],[4/3,2/3],[2,2]],[[1,.5],[1.5,.5],[2,.5],[2.5,1.5],[4.5,.5],[5,1.5]],
   [[0,.5],[.5,.5],[1,1],[2.5,.5],[3,1.5]],[[0,2.5],[3,.5],[3.5,.5],[4,1.5]],[[.5,1],[1.5,1],[2.5,.5],[3,2]],
-  [[0,1],[1,1],[2,.5],[2.5,.5],[3,2]],[[0,3]],[[1.5,.5],[2,2.5]],
+  [[0,1],[1,1],[2,.5],[2.5,.5],[3,2]],
 ];
 const RHY_DENSE=[
   [[0,.5],[.5,.5],[1,.5],[1.5,.5],[2,1.5]],[[.5,.5],[1,.5],[1.5,.5],[2,.5],[2.5,.5],[3,1.5]],
@@ -1166,7 +1166,7 @@ const RHY_DT=[
   [[.5,.25],[.75,.25],[1,.25],[1.25,.25],[1.5,.5],[2,.25],[2.25,.25],[2.5,.25],[2.75,.25],[3,1.5]],
 ];
 function newMotif(I,tempo){
-  const dt=tempo<125&&I>.72&&rnd()<.35,dense=!dt&&rnd()<(I-.3)*(tempo>220?.7:1.1);
+  const dt=tempo<125&&I>.86&&rnd()<.3,dense=!dt&&I>.5&&rnd()<(I-.5)*(tempo>220?1:1.5);
   const r=pick(dt?RHY_DT:dense?RHY_DENSE:RHY).map(x=>x.slice()),c=[0];
   let dir=rnd()<.5?1:-1,run=0;
   for(let i=1;i<r.length;i++){
@@ -1189,21 +1189,31 @@ function vary(m,kind){
 }
 function soloEngine(X,st,o){
   const {B,chordAt,bar,t0,bd,swung}=X,I=X.I??.5,tempo=bar.tempo;
-  if(st.lastK!==P.k-1){st.gb=0;st.next=st.lead??1;st.q=[];st.n=0;st.motif=null;st.theme=null;st.recalled=false;st.prev=o.center;}
+  if(st.lastK!==P.k-1){st.gb=0;st.next=st.lead??1;st.q=[];st.n=0;st.motif=null;st.theme=null;st.closed=false;st.prev=o.center;}
   st.lastK=P.k;
   const end=st.gb+B,sw=swung?.57:.5,climb=o.climb*I;
   const Ts=b=>{const fb=Math.floor(b+1e-6),fr=b-fb;return t0+(fb+(Math.abs(fr-.5)<1e-3?sw:fr))*bd;};
+  const remAt=x=>bar.partBars?(bar.partBars-bar.partPos)*B-(x-st.gb):1e9; // tiempos que quedan de solo
   while(st.next<end){
-    const k=st.n%4;let m;
-    if(!st.recalled&&bar.prog>.86&&st.theme){m=vary(st.theme,'repeat');st.recalled=true;st.n=3;} // vuelve al motivo del principio
+    const k=st.n%4;let m,closing=false;
+    if(!st.closed&&remAt(st.next)<24&&st.theme){ // cierre: vuelve al motivo inicial y resuelve bajando a una nota larga
+      const rem=remAt(st.next);
+      m=vary(st.theme,'repeat');const last=m.r[m.r.length-1];last[1]=.5;let p=last[0]+.5;
+      if(p+4>rem-1.5){m={r:[[0,.5],[.5,.5],[1,1]],c:[0,-1,-1],role:1};p=2;} // poco sitio: solo la cadencia
+      else{m.r.push([p,.5],[p+.5,.5]);m.c.push(-1,-1);p+=1;}
+      m.r.push([p,Math.max(1.5,Math.min(4,rem-p-.5))]);m.c.push(-1);closing=true;st.closed=true;}
+    else if(st.closed){st.next=1e9;break;}
     else{
       if(k===0||!st.motif){st.motif=newMotif(I,tempo);if(!st.theme)st.theme=st.motif;}
-      m=k===0?st.motif:k===1?vary(st.motif,'repeat'):k===2?vary(st.motif,pick(['displace','invert','fragment','augment'])):vary(st.motif,I>.6&&rnd()<.5?'fragment':'extend');
+      m=k===0?st.motif:k===1?vary(st.motif,'repeat'):k===2?vary(st.motif,pick(['displace','invert','fragment','augment'])):vary(st.motif,'extend');
+      if(I>.45&&rnd()<(I-.35)*1.2){ // con más intensidad la frase sigue cantando por encima del cambio de acorde
+        const last=m.r[m.r.length-1];last[1]=Math.min(last[1],.5);let p=last[0]+last[1];const n=2+Math.floor(rnd()*4*I),d=rnd()<.5?1:-1;
+        for(let q=0;q<n;q++){const ln=q===n-1?1.5:pick([.5,.5,1]);m.r.push([p,ln]);m.c.push(q===n-1?-d:d*(rnd()<.8?1:2));p+=ln;}}
     }
     const lift=(k===2?2:k===3?4:0)+climb;let pend=0;
-    m.r.forEach(([p,l],i)=>{st.q.push({at:st.next+p,len:l,step:m.c[i],first:i===0,last:i===m.r.length-1,role:m.role,lift});pend=Math.max(pend,p+l);});
-    const rest=Math.max(.5,Math.round(((1-I)*3.2+rnd()*1.5-.4)*2)/2);
-    st.n++;st.next+=Math.max(2,pend+rest);
+    m.r.forEach(([p,l],i)=>{st.q.push({at:st.next+p,len:l,step:m.c[i],first:i===0,last:i===m.r.length-1,role:m.role,lift:closing?climb*.3:lift,final:closing&&i===m.r.length-1});pend=Math.max(pend,p+l);});
+    const rest=Math.max(1,Math.round(((1-I)*3+rnd()*1.5)*2)/2);
+    st.n++;st.next+=Math.max(4,pend+rest);
   }
   const later=[];
   for(const nt of st.q){
@@ -1219,7 +1229,8 @@ function soloEngine(X,st,o){
     else{n=st.prev;const d=Math.sign(nt.step)||1;
       if(Math.abs(nt.step)===.5)n+=d;else for(let s=0;s<Math.abs(nt.step);s++)n=stepScale(n,d,sc);
       if(n>hi||n<o.lo){n=st.prev;if(Math.abs(nt.step)===.5)n-=d;else for(let s=0;s<Math.abs(nt.step);s++)n=stepScale(n,-d,sc);}}
-    if(nt.len>=1||nt.last||(Number.isInteger(b)&&nt.len>=.5&&rnd()<.5)){let best=n,bd2=99;for(let x=n-2;x<=n+2;x++)if(tones.includes(mod12(x))&&Math.abs(x-n)<bd2){bd2=Math.abs(x-n);best=x;}n=best;}
+    if(nt.final){n=nearestNote(rnd()<.6?c.pc:mod12(c.pc+Ci.third),n-1,o.lo,o.hi);}
+    else if(nt.len>=1||nt.last||(Number.isInteger(b)&&nt.len>=.5&&rnd()<.5)){let best=n,bd2=99;for(let x=n-2;x<=n+2;x++)if(tones.includes(mod12(x))&&Math.abs(x-n)<bd2){bd2=Math.abs(x-n);best=x;}n=best;}
     n=clamp(n,o.lo,hi);
     const t=Ts(b),t2=Ts(b+nt.len);
     const vel=(nt.len>=1?.58:.46)+.18*I+(nt.last?.04:0)+rnd()*.07-(nt.len<.4?.06:0);
