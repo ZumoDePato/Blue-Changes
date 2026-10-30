@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#040b1c">
 <meta name="apple-mobile-web-app-title" content="Blue Changes">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=24">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=24">
-<link rel="manifest" href="manifest.webmanifest?v=24">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=25">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=25">
+<link rel="manifest" href="manifest.webmanifest?v=25">
 <title>Blue Changes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,15 +34,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   background:radial-gradient(120% 60% at 85% -10%,rgba(59,125,255,.35),transparent 60%),radial-gradient(90% 50% at -10% 30%,rgba(143,208,255,.10),transparent 60%),linear-gradient(180deg,#071330,var(--ink) 70%)}
 .appbar{padding:calc(env(safe-area-inset-top) + 10px) 18px 8px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:baseline;gap:6px;line-height:1}
-.brand .logo{width:40px;height:40px;border-radius:11px;align-self:center;margin-right:4px;box-shadow:0 0 0 1px rgba(143,208,255,.25),0 6px 18px rgba(0,0,0,.45)}
-.brand b{font:900 25px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;background:var(--blue);color:#fff;padding:3px 8px 1px;transform:skew(-8deg)}
-.brand i{font:italic 20px/1 var(--serif);color:var(--sky)}
+.brand b{font:900 30px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;background:var(--blue);color:#fff;padding:3px 8px 1px;transform:skew(-8deg)}
+.brand i{font:italic 24px/1 var(--serif);color:var(--sky)}
 .brand .ver{font:700 10px var(--ui);color:var(--mute);letter-spacing:.1em;align-self:flex-start}
 .appbar .sub{font:600 10px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .appbar .brand{flex:none}
 @media (max-width:359px){.appbar .sub{display:none}.brand .ver{display:none}}
 main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 20px}
-.view{display:none;flex-direction:column;gap:14px}
+.view{display:none;flex-direction:column;gap:10px}
 .view.active{display:flex}
 h2{font:900 26px/1 var(--display);text-transform:uppercase;letter-spacing:.03em;margin:6px 0 0;text-wrap:balance}
 h3{font:700 12px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:8px 0 -4px}
@@ -69,56 +68,63 @@ h3{font:700 12px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:v
 .switch.on::after{left:24px}
 input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 /* song header */
-.songhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-top:4px}
-.eyebrow{font:700 11px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--sky)}
-.songhead h1{font:400 30px/1.05 var(--serif);margin:4px 0 2px;text-wrap:balance}
-.composer{color:var(--mute);font-size:14px}
-.keychip{border:1px solid var(--line);background:rgba(4,11,28,.55);border-radius:14px;padding:8px 12px;text-align:right;flex:none}
-.keychip span{display:block;font:700 22px/1 var(--chord)}
-.keychip small{display:block;color:var(--mute);font-size:11px;margin-top:3px;white-space:nowrap}
+.songhead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:0}
+.eyebrow{font:700 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--sky)}
+.songhead h1{font:400 25px/1.05 var(--serif);margin:2px 0 1px;text-wrap:balance}
+.composer{color:var(--mute);font-size:13px}
+.keychip{border:1px solid var(--line);background:rgba(4,11,28,.55);border-radius:12px;padding:6px 10px;text-align:right;flex:none}
+.keychip span{display:block;font:700 19px/1 var(--chord)}
+.keychip small{display:block;color:var(--mute);font-size:10px;margin-top:2px;white-space:nowrap}
 /* stage */
-.stage{display:flex;gap:16px;align-items:center;padding:14px;border-radius:20px;border:1px solid var(--line);
+.stage{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:20px;border:1px solid var(--line);
   background:linear-gradient(135deg,rgba(59,125,255,.22),rgba(8,22,51,.7));position:relative;overflow:hidden;--tone:var(--sky)}
 .stage::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--tone)}
 .stage[data-tone="you"]{--tone:var(--brass)}
 .stage[data-tone="drums"]{--tone:var(--coral)}
 .stage[data-tone="piano"],.stage[data-tone="bass"]{--tone:var(--violet)}
 .stage[data-tone="count"]{--tone:#fff}
-.disc{width:128px;height:128px;border-radius:50%;flex:none;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06)}
+.disc{width:84px;height:84px;border-radius:50%;flex:none;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06)}
 .grooves{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,transparent 0 8%,rgba(255,255,255,.13) 12%,transparent 18% 55%,rgba(255,255,255,.09) 60%,transparent 66%),repeating-radial-gradient(circle,#0b0e17 0 1.6px,#1a1f2c 1.6px 3px)}
 .is-playing .grooves{animation:spin 1.8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .label{position:absolute;inset:27%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#5f97ff,var(--blue) 55%,#1e4fc0);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.2)}
 .stage[data-tone="you"] .label{background:radial-gradient(circle at 35% 30%,#ffd88a,var(--brass) 55%,#c98a1e);color:#1a1205}
 .stage[data-tone="drums"] .label{background:radial-gradient(circle at 35% 30%,#ffb0a5,var(--coral) 55%,#c94a3c)}
-.label span{font:700 26px/1 var(--chord);text-align:center;white-space:nowrap}
-.label span.big{font-size:34px}
-.nowinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
-.part b{display:block;font:900 26px/1 var(--display);letter-spacing:.03em;text-transform:uppercase;color:var(--tone)}
-.part span{display:block;color:var(--mute);font-size:13px;margin-top:3px}
-.nextc small{display:block;font:700 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
-.nextc span{font:700 28px/1.1 var(--chord)}
+.label span{font:700 20px/1 var(--chord);text-align:center;white-space:nowrap}
+.label span.big{font-size:28px}
+.nowinfo{flex:1;min-width:0;display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:4px;align-items:center}
+.nowinfo .part{grid-column:1/3}.nowinfo .nextc{grid-column:1;display:flex;align-items:baseline;gap:8px;min-width:0}.nowinfo .beats{grid-column:2}.nowinfo .barno{display:none}
+.part b{display:block;font:900 22px/1 var(--display);letter-spacing:.03em;text-transform:uppercase;color:var(--tone)}
+.part span{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.nextc small{display:block;font:700 9px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.nextc span{font:700 23px/1.1 var(--chord)}
 .beats{display:flex;gap:6px}
-.beats i{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.14);transition:background .06s}
+.beats i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.14);transition:background .06s}
 .beats i.on{background:var(--tone);box-shadow:0 0 10px var(--tone)}
-.barno{font:600 12px var(--ui);color:var(--mute);font-variant-numeric:tabular-nums}
+.barno{font:600 11px var(--ui);color:var(--mute);font-variant-numeric:tabular-nums}
 /* quick selects */
-.quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.qsel{position:relative;display:flex;flex-direction:column;gap:2px;background:rgba(4,11,28,.55);border:1px solid var(--line);border-radius:14px;padding:7px 30px 7px 12px;min-width:0}
-.qsel::after{content:"";position:absolute;right:12px;top:50%;width:8px;height:8px;border-right:2px solid var(--sky);border-bottom:2px solid var(--sky);transform:translateY(-70%) rotate(45deg);pointer-events:none}
-.qsel small{font:700 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
-.qsel select{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 17px var(--ui);padding:0;width:100%;outline:none;text-overflow:ellipsis}
+.quick{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scroll-padding:0 16px}
+.quick::-webkit-scrollbar{display:none}
+.quick>*{scroll-snap-align:start}
+.qsel{position:relative;display:flex;flex-direction:column;gap:2px;background:rgba(4,11,28,.55);border:1px solid var(--line);border-radius:12px;padding:5px 26px 5px 10px;min-width:0;flex:none;width:var(--cw,120px)}
+.qsel::after{content:"";position:absolute;right:10px;top:50%;width:8px;height:8px;border-right:2px solid var(--sky);border-bottom:2px solid var(--sky);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.qsel small{font:700 9px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.qsel select{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 15px var(--ui);padding:0;width:100%;outline:none;text-overflow:ellipsis}
 .qsel select option{color:#000}
 .loadmsg{font:600 12px var(--ui);color:var(--sky);min-height:0}
-.qsel.multi{padding-right:30px}
-.qsel.multi>button{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 17px var(--ui);padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
-.qpanel{display:none;position:absolute;left:auto;right:0;bottom:calc(100% + 6px);width:210px;z-index:15;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.loadmsg:empty{display:none}
+.qsel.multi{padding-right:26px}
+.qsel.multi>button{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 15px var(--ui);padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+.qpanel{display:none;position:fixed;left:8px;bottom:120px;width:210px;z-index:40;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
 .qsel.open .qpanel{display:flex;flex-direction:column}
 .qpanel button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:11px 10px;border-radius:10px;font:600 16px var(--ui);color:var(--text);text-align:left}
 .qpanel button:active{background:rgba(255,255,255,.06)}
 .qpanel .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--mute);flex:none;display:grid;place-items:center;font:700 13px var(--ui)}
 .qpanel button.on .box{background:var(--brass);border-color:var(--brass);color:#1a1205}
-.fours{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(4,11,28,.55);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px}
+.fchip{justify-content:center}.fchip::after{display:none}
+.fchip .switch{width:44px;height:26px;border-radius:13px;margin-top:1px}
+.fchip .switch::after{top:3px;left:3px;width:20px;height:20px}
+.fchip .switch.on::after{left:21px}
 .fours b{font:700 17px var(--ui)}
 .fours small{display:block;color:var(--mute);font-size:12.5px;margin-top:2px;line-height:1.3}
 /* arrangement */
@@ -138,14 +144,14 @@ input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 .mixrow .ghost.on{background:var(--brass);color:#1a1205;border-color:var(--brass)}
 /* chart */
 .chart{display:grid;grid-template-columns:repeat(4,1fr);border-radius:16px;overflow:hidden;background:rgba(240,244,255,.035);border:1px solid var(--line)}
-.bar{position:relative;min-height:80px;padding:18px 6px 10px 8px;border-left:1px solid rgba(150,185,255,.22);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0}
+.bar{position:relative;min-height:68px;padding:16px 6px 8px 8px;border-left:1px solid rgba(150,185,255,.22);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0}
 .bar:nth-child(4n+1){border-left:0}
 .bar.fill{cursor:default}
 .bar .sec{position:absolute;top:3px;left:5px;font:900 13px/1 var(--display);background:var(--sky);color:#08142c;padding:2px 5px 1px;border-radius:4px}
 .bar .end{position:absolute;top:3px;right:5px;font:700 11px var(--ui);color:var(--brass)}
 .bar.rs{border-left:3px double var(--sky)}
 .bar.re{box-shadow:inset -3px 0 0 -1px var(--sky)}
-.ch{font:700 31px/1 var(--chord);white-space:nowrap;letter-spacing:-.01em}
+.ch{font:700 28px/1 var(--chord);white-space:nowrap;letter-spacing:-.01em}
 .ch sup{font-size:.62em;vertical-align:.55em;margin-left:1px;font-weight:600}
 .ch .bs{font-size:.7em;color:var(--sky)}
 .bar.n2{flex-direction:column;align-items:flex-start;justify-content:center;gap:4px}
@@ -239,7 +245,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><img class="logo" src="icons/logo-mark.png" alt="Blue Changes" width="40" height="40"><b>Blue</b><i>changes</i><small class="ver">v24</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v26</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -286,18 +292,18 @@ a{color:var(--sky)}
         </div>
       </div>
       <div class="quick">
-        <label class="qsel"><small>Tono</small><select id="qKey" aria-label="Tonalidad"></select></label>
-        <label class="qsel"><small>Estilo</small><select id="qStyle" aria-label="Estilo"><option value="auto">Auto</option><option value="swing">Swing</option><option value="bossa">Bossa nova</option><option value="ballad">Balada</option><option value="latin">Latin</option><option value="funk">Funk</option><option value="waltz">Vals jazz</option></select></label>
-        <label class="qsel"><small>Cifrado para</small><select id="qInst" aria-label="Instrumento"><option value="0">C · concierto</option><option value="2">B♭ · trompeta, tenor</option><option value="9">E♭ · saxo alto</option><option value="7">F · trompa</option></select></label>
-        <div class="qsel multi" id="qSolos"><small>Solos</small><button type="button" id="qSolosBtn" aria-haspopup="listbox" aria-expanded="false">Ninguno</button>
+        <label class="qsel" style="--cw:126px"><small>Tono</small><select id="qKey" aria-label="Tonalidad"></select></label>
+        <label class="qsel" style="--cw:116px"><small>Estilo</small><select id="qStyle" aria-label="Estilo"><option value="auto">Auto</option><option value="swing">Swing</option><option value="bossa">Bossa nova</option><option value="ballad">Balada</option><option value="latin">Latin</option><option value="funk">Funk</option><option value="waltz">Vals jazz</option></select></label>
+        <label class="qsel" style="--cw:156px"><small>Cifrado para</small><select id="qInst" aria-label="Instrumento"><option value="0">C · concierto</option><option value="2">B♭ · trompeta, tenor</option><option value="9">E♭ · saxo alto</option><option value="7">F · trompa</option></select></label>
+        <div class="qsel multi" id="qSolos" style="--cw:140px"><small>Solos</small><button type="button" id="qSolosBtn" aria-haspopup="listbox" aria-expanded="false">Ninguno</button>
           <div class="qpanel" id="qSolosPanel" role="listbox" aria-multiselectable="true">
             <button type="button" data-inst="sax" role="option"><span class="box"></span><span>Saxo</span></button>
             <button type="button" data-inst="piano" role="option"><span class="box"></span><span>Piano</span></button>
             <button type="button" data-inst="bass" role="option"><span class="box"></span><span>Bajo</span></button>
             <button type="button" data-inst="drums" role="option"><span class="box"></span><span>Batería</span></button>
           </div></div>
+        <div class="qsel fchip" style="--cw:108px"><small>Cuatros</small><button class="switch" id="foursSw" role="switch" aria-label="Cuatros"></button><span id="foursInfo" hidden></span></div>
       </div>
-      <div class="fours"><div><b>Cuatros</b><small id="foursInfo">Turnos de 4 compases entre tú y la batería</small></div><button class="switch" id="foursSw" role="switch" aria-label="Cuatros"></button></div>
       <div class="arr" id="arr"></div>
       <div class="loadmsg" id="loadMsg"></div>
       <div class="mixrow">
@@ -1688,7 +1694,7 @@ function arrItems(){
   const L=CUR.song?CUR.song.bars.length:0;
   return [{t:S.reps?`${S.reps} vueltas`:'Vueltas sin fin',i:-1,c:''},{t:S.loopOn?`Loop c. ${Math.min(S.loopA,S.loopB)}–${Math.max(S.loopA,S.loopB)}`:`${L} compases`,i:-2,c:''},{t:S.autoTempo?`+${S.incBpm} BPM/vuelta`:'Tempo fijo',i:-3,c:''}];
 }
-function renderArr(){const h=arrItems().map(x=>`<div class="${x.c}" data-i="${x.i}">${esc(x.t)}</div>`).join('');$('#arr').innerHTML=h;$('#arr2').innerHTML=h;
+function renderArr(){const h=arrItems().map(x=>`<div class="${x.c}" data-i="${x.i}">${esc(x.t)}</div>`).join('');$('#arr').innerHTML=h;$('#arr2').innerHTML=h;$('#arr').style.display=S.mode==='free'?'none':'';
   $('#modeLbl').textContent=S.mode==='free'?'Libre':S.fours?(S.soloists.length?'Solos + 4s':'Tú + 4s'):'Solos';
   $('#chartHint').style.display=S.mode==='free'?'':'none';}
 function renderTempo(){$('#bpm').textContent=P.tempo;$('#tempoLbl').textContent=P.tempo;$('#tempoRange').value=P.tempo;}
@@ -1885,7 +1891,10 @@ $('#qKey').addEventListener('change',e=>{S.transpose=+e.target.value;changed('tr
 $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style');});
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
 function applySoloMode(){syncMode();P.startIdx=0;changed('mode');renderQuick();if(S.soloists.includes('sax')){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}
-$('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();const o=$('#qSolos').classList.toggle('open');$('#qSolosBtn').setAttribute('aria-expanded',o);});
+let solosX=0;
+function placeSolos(){const r=$('#qSolosBtn').getBoundingClientRect(),pn=$('#qSolosPanel');pn.style.left=Math.max(8,Math.min(r.left-10,innerWidth-218))+'px';pn.style.bottom=(innerHeight-r.top+14)+'px';}
+$('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();const o=$('#qSolos').classList.toggle('open');if(o){placeSolos();solosX=$('.quick').scrollLeft;}$('#qSolosBtn').setAttribute('aria-expanded',o);});
+$('.quick').addEventListener('scroll',()=>{if(Math.abs($('.quick').scrollLeft-solosX)>6)$('#qSolos').classList.remove('open');},{passive:true});
 $('#qSolosPanel').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-inst]');if(!b)return;const id=b.dataset.inst,i=S.soloists.indexOf(id);if(i>=0)S.soloists.splice(i,1);else S.soloists.push(id);applySoloMode();});
 document.addEventListener('click',e=>{if(!e.target.closest('#qSolos')){$('#qSolos').classList.remove('open');$('#qSolosBtn').setAttribute('aria-expanded','false');}});
 $('#foursSw').addEventListener('click',()=>{S.fours=!S.fours;applySoloMode();});
