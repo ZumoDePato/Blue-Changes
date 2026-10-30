@@ -211,7 +211,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v10</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v11</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -1270,14 +1270,14 @@ function soloEngine(X,st,o){
    m7: Eb∆7 (3-5-7-9), Gm7 (5-7-9-11), F7 (11-13-1-b3), Bb∆7 (7-9-11-13)…
    7: E-ø (3-5-7-9), Gm∆ / Bb∆7#5 (7-9-#11-13), tríada de 9 (9-#11-13); alterado: disminuido desde b9, Ab∆ (b13-1-#9) */
 const XARP={
-  min:[[3,7,10,14],[7,10,14,17],[5,9,12,15],[10,14,17,21],[2,5,9,12]],
-  dom:[[4,7,10,14],[10,14,18,21],[2,6,9,14],[7,10,14,16],[4,10,14,21]],
-  alt:[[1,4,7,10],[8,12,15,20],[3,6,10,13],[4,8,10,15]],
-  maj:[[4,7,11,14],[7,11,14,18],[11,14,18,21],[2,7,11,14]],
-  six:[[4,7,9,14],[2,4,7,9],[9,12,16,19]],
-  hdim:[[3,6,10,14],[6,10,12,15],[0,3,6,10]],
+  min:[[0,3,7,10],[3,7,10,14],[0,3,7,10],[5,9,12,15]],
+  dom:[[0,4,7,10],[4,7,10,14],[0,4,7,10]],
+  alt:[[1,4,7,10],[0,4,7,10]],
+  maj:[[0,4,7,11],[4,7,11,14],[0,4,7,11]],
+  six:[[0,4,7,9],[4,7,9,12]],
+  hdim:[[0,3,6,10],[3,6,10,12]],
   dim:[[0,3,6,9],[2,5,8,11]],
-  sus:[[10,14,17,21],[5,10,14,17],[2,5,9,14]],
+  sus:[[0,5,7,10],[5,10,12,14]],
 };
 function xarpKind(c){const k=chordInfo(c.q);if(k.kind==='dom')return (k.alt||k.ext.some(e=>e===13||e===15||e===20))?'alt':'dom';if(k.kind==='maj')return k.sev===11?'maj':'six';if(k.kind==='min')return 'min';return XARP[k.kind]?k.kind:'maj';}
 function lineEngine(X,st,o){
@@ -1290,7 +1290,7 @@ function lineEngine(X,st,o){
   const sev=I=>I.sev??(I.kind==='min'?10:11);
   const fit=n=>{while(n>o.hi)n-=12;while(n<o.lo)n+=12;return n;};
   const target=(c,ref,dir,guide)=>{const I=chordInfo(c.q);let iv=guide?[I.third,sev(I)]:[0,I.third,I.fifth,sev(I)];
-    if(!guide&&rnd()<.3){const ex={min:[14,17],dom:I.alt?[13,15,20]:[14,21],maj:[14],hdim:[17],sus:[14,21]}[I.kind];if(ex)iv=iv.concat(ex);} // 9ª, 11ª, 13ª
+    if(!guide&&rnd()<.1){const ex={min:[14,17],dom:I.alt?[13,15,20]:[14,21],maj:[14],hdim:[17],sus:[14,21]}[I.kind];if(ex)iv=iv.concat(ex);} // 9ª, 11ª, 13ª
     const pcs=iv.map(i=>mod12(c.pc+i));let best=ref,bs=1e9;
     for(let n=o.lo;n<=o.hi;n++){if(n===ref||!pcs.includes(mod12(n)))continue;const d=n-ref;let sc=Math.abs(d-dir*2)+(Math.sign(d)!==dir?2.5:0)+(Math.abs(d)>6?6:0)+Math.abs(n-o.center)*.18+rnd()*1.2;if(sc<bs){bs=sc;best=n;}}
     return best;};
@@ -1380,11 +1380,11 @@ function lineEngine(X,st,o){
 const sameChord=(a,b)=>a&&b&&a.pc===b.pc&&a.q===b.q;
 function mkW(obj){const list=Object.entries(obj);return {list,tot:list.reduce((a,[,w])=>a+w,0)};}
 function saxSolo(X){lineEngine(X,P.ssolo,{lo:52,hi:77,center:64,orn:.32,phrase:[8,15],breath:[.5,.5,1],base:.56,lay:.008,jit:.012,gap:.012,
-  w:mkW({run:.24,arp:.1,xarp:.2,enc:.11,turn:.09,trip:.07,long:.1,seq:.12}),play:(t,n,d,v,leg)=>snote(t,n,d,v,X.o.sax,leg?.025:.06)});}
+  w:mkW({run:.3,arp:.1,xarp:.07,enc:.12,turn:.09,trip:.08,long:.11,seq:.13}),play:(t,n,d,v,leg)=>snote(t,n,d,v,X.o.sax,leg?.025:.06)});}
 function pianoSolo(X){lineEngine(X,P.solo,{lo:60,hi:84,center:70,orn:.2,phrase:[10,18],breath:[.5,1],base:.5,lay:0,jit:.01,gap:0,
-  w:mkW({run:.26,arp:.1,xarp:.2,enc:.11,turn:.05,trip:.07,long:.1,seq:.13}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
+  w:mkW({run:.32,arp:.1,xarp:.07,enc:.12,turn:.05,trip:.08,long:.11,seq:.15}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
 function bassSolo(X){lineEngine(X,P.bsolo,{lo:38,hi:58,center:46,orn:.08,phrase:[6,12],breath:[1,1.5],base:.72,lay:.004,jit:.012,gap:.01,
-  w:mkW({run:.22,arp:.15,xarp:.1,enc:.1,turn:.02,trip:.05,long:.28,seq:.1}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
+  w:mkW({run:.25,arp:.17,xarp:.04,enc:.1,turn:.02,trip:.05,long:.27,seq:.1}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
 const DCELLS=[
   [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.8],[0,'crash',.5]],
   [[0,'snare',.7],[.5,'kick',.6]],[[0,'snare',.5],[.25,'snare',.35],[.5,'snare',.55],[.75,'snare',.7]],[[.5,'snare',.8]],
