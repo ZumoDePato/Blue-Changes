@@ -232,7 +232,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v20</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v22</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -323,8 +323,8 @@ a{color:var(--sky)}
 
       <h3>Cuatros</h3>
       <div class="card">
-        <div class="row"><div class="lbl">Turnos de</div><div class="seg" data-key="tradeLen" style="min-width:150px"><button data-v="4">4 compases</button><button data-v="8">8</button></div></div>
-        <p class="hint">Con «Cuatros» activado en Tocar, al terminar todos los solos y justo antes del tema final tocáis por turnos y en orden: tú primero y después los instrumentos que marques en «Solos» (Saxo → Piano → …), una y otra vez hasta que todos hayan tocado lo mismo. Si no marcas ninguno, tocas tú y la batería.</p>
+        <div class="row"><div class="lbl">Cada turno dura</div><div class="seg" data-key="tradeLen" style="min-width:150px"><button data-v="4">4 compases</button><button data-v="8">8</button></div></div>
+        <p class="hint">Con «Cuatros» activado en Tocar, al terminar todos los solos y justo antes del tema final: tú improvisas 4 u 8 compases y la batería te contesta con otros 4 u 8 sola; luego el siguiente solista (los que marques en «Solos», en orden) y otra vez la batería, y así hasta que todos acaban. La última batería se alarga si hace falta para terminar al final de la forma, y vuelve el tema.</p>
       </div>
 
       <h3>Solos</h3>
@@ -971,16 +971,19 @@ const SOLOROLE={sax:'saxsolo',piano:'pianosolo',bass:'basssolo',drums:'drumsolo'
 const SOLONAME={sax:'Solo de saxo',piano:'Solo de piano',bass:'Solo de bajo',drums:'Solo de batería'};
 const PNAME={you:'Tú',sax:'Saxo',piano:'Piano',bass:'Bajo',drums:'Batería'};
 const PTONE={you:'you',sax:'piano',piano:'piano',bass:'bass',drums:'drums'};
-const tradePlayers=()=>['you'].concat(S.soloists.length?S.soloists:['drums']);
+const foursSeq=()=>{const seq=[];['you'].concat(S.soloists.filter(x=>x!=='drums')).forEach(x=>seq.push(x,'drums'));return seq;}; // cada solista, y la batería le contesta
 function songLenFull(){const f=expandForm(CUR.song.bars);return f.length||CUR.song.bars.length;}
-function tradeChoruses(L){const n=tradePlayers().length,T=S.tradeLen;for(let c=1;c<=16;c++)if((c*L)%(T*n)===0)return c;return 1;} // las vueltas justas para que todos toquen lo mismo
+function foursPlan(L){ // una ronda (cada solista una vez); la última batería se alarga hasta cerrar la forma
+  const seq=foursSeq(),T=S.tradeLen;
+  for(let r=1;r<=4;r++){const tot=r*seq.length*T,c=Math.ceil(tot/L),ext=c*L-tot;if(ext<=2*T)return {seq,rounds:r,c};}
+  const tot=seq.length*T;return {seq,rounds:1,c:Math.ceil(tot/L)};}
 function buildParts(L){
   L=L||songLenFull();
   const head={name:'Tema',info:'Toca la melodía',role:'band',tone:'head',n:1,cls:'head'};
   const p=[head];
   p.push({name:'Tu solo',info:'Improvisa',role:'band',tone:'you',n:S.soloChoruses,cls:'you'});
   S.soloists.forEach(id=>p.push({name:SOLONAME[id],info:'Escucha y acompaña',role:SOLOROLE[id],tone:PTONE[id],n:S.solo2Choruses,cls:id==='drums'?'drums':'solo2'}));
-  if(S.fours){const pl=tradePlayers();p.push({name:'Cuatros',info:pl.map(x=>PNAME[x]).join(' → '),role:'trades',tone:'you',n:tradeChoruses(L),cls:'drums',players:pl});} // después de todos los solos
+  if(S.fours){const f=foursPlan(L);p.push({name:'Cuatros',info:f.seq.map(x=>PNAME[x]).join(' → '),role:'trades',tone:'you',n:f.c,cls:'drums',seq:f.seq,turns:f.seq.length*f.rounds});} // después de todos los solos
   p.push(Object.assign({},head,{name:'Tema final',info:'Melodía otra vez'}));
   return p;
 }
@@ -1011,7 +1014,7 @@ function buildConductor(){
       for(let pi=0;pi<parts.length;pi++){const p=parts[pi],n=p.n*L;
         if(j<acc+n){const r=j-acc,ch=Math.floor(r/L),pos=r%L;let role=p.role,part=p.name,tone=p.tone,info=`${p.info} · vuelta ${ch+1} de ${p.n}`,segStart=pos===0,segEnd=false,turn=0,turnPos=0;
           if(role==='drumsolo'){segStart=pos%4===0;segEnd=pos%4===3;}
-          if(role==='trades'){const T=S.tradeLen,pl=p.players,g=Math.floor(r/T),pid=pl[g%pl.length],tp=r%T;role=pid==='you'?'band':SOLOROLE[pid];tone=PTONE[pid];part=PNAME[pid];info=`Cuatros · vuelta ${ch+1} de ${p.n}`;segStart=tp===0;segEnd=tp===T-1;turn=T;turnPos=tp;}
+          if(role==='trades'){const T=S.tradeLen,g=Math.floor(r/T),pid=g<p.turns?p.seq[g%p.seq.length]:'drums',tp=r%T;role=pid==='you'?'band':SOLOROLE[pid];tone=PTONE[pid];part=PNAME[pid];info=`Cuatros · vuelta ${ch+1} de ${p.n}`;segStart=tp===0;segEnd=tp===T-1;turn=T;turnPos=tp;}
           const prog=(ch*L+pos)/(p.n*L),head=p.cls==='head';
           const inten=head?(pi===0?.22:.38):p.role==='trades'?.7:arc(prog);
           return mk({role,idx:form[pos],part,info,tone,segStart,segEnd,fillAfter:pos===L-1,partIndex:pi,chorus:ch,pos,sectionStart:pos===0&&ch===0,prog,inten,head,partBars:p.n*L,partPos:r,turn,turnPos,twoFeel:head&&pi===0&&twoFeel&&pos<L-4&&P.tempo<230});}
@@ -1800,7 +1803,7 @@ function renderQuick(){
   $('#qSolosBtn').textContent=S.soloists.length?S.soloists.map(x=>NM[x]).join(', '):'Ninguno';
   $$('#qSolosPanel [data-inst]').forEach(b=>{const i=S.soloists.indexOf(b.dataset.inst);b.classList.toggle('on',i>=0);b.setAttribute('aria-selected',i>=0);b.querySelector('.box').textContent=i>=0?String(i+1):'';});
   const fs=$('#foursSw');fs.classList.toggle('on',S.fours);fs.setAttribute('aria-checked',S.fours);
-  $('#foursInfo').textContent=S.fours?`Al final de los solos, turnos de ${S.tradeLen}: ${tradePlayers().map(x=>PNAME[x]).join(' → ')}`:`Al final de los solos, turnos de ${S.tradeLen} compases`;
+  $('#foursInfo').textContent=S.fours?`Al final, de ${S.tradeLen} en ${S.tradeLen}: ${foursSeq().map(x=>PNAME[x]).join(' → ')}`:`Al final de los solos: solista y batería, de ${S.tradeLen} en ${S.tradeLen} compases`;
   $('#qStyle').value=S.style;$('#qInst').value=String(S.inst);
 }
 function importText(txt){
