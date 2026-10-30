@@ -221,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v14</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v15</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -1165,54 +1165,65 @@ function pianoFill(X,b0,c,target){ // pequeña frase del piano en un hueco
     pnote(T(b)+(rnd()-.5)*.008,n,Math.max(.08,(T(b+.5)-T(b))*(last?1:.9)),.34+rnd()*.08,o.piano);
     n=rnd()<.25?n-1:stepScale(n,-1,sc);}
 }
+/* Acompañamiento de piano "humano":
+   - Cada grupo de 4 compases tiene una figura rítmica principal y una variante (A A A' B), así hay unidad.
+   - Los acordes se sostienen (L) hasta el siguiente golpe; golpes cortos (S) solo como acentos.
+   - Lento: acordes largos a dos manos y algún relleno. Medio: charleston y anticipaciones. Rápido: pocos golpes, cortos, voicings de 3 notas.
+   - Voicings que caben en las manos y conducción de voces suave. */
+const GROOVE={
+  slow:[[[0,'L']],[[0,'L'],[2,'L']],[[0,'L'],[2.5,'L']],[[0,'M'],[1.5,'L']],[[.5,'L'],[2.5,'L']]],
+  mid:[[[0,'S'],[1.5,'L']],[[1.5,'L'],[3.5,'S']],[[0,'L'],[2.5,'L']],[[1,'S'],[2.5,'L']],[[0,'M'],[2,'S'],[3.5,'L']],[[0,'L'],[3.5,'S']],[[2/3,'S'],[2,'L']]],
+  fast:[[[1.5,'S']],[[3.5,'S']],[[0,'S'],[2.5,'S']],[[1.5,'S'],[3.5,'S']],[[2.5,'L']],[[0,'M']]],
+};
 function pianoComp(X,soft){
   const {B,T,H,segs,style,nextC,chordAt,o,I,bar,bd}=X;
   if(style==='latin'){
     for(let p=0;p<B;p+=.5){const c=chordAt(p);if(!c||c.nc)continue;const v=voiceChord(c,P.voicing,55,77);P.voicing=v;const part=([0,1,1.5,2.5,3,3.5].includes(p))?(p%1?v.slice(2):v.slice(0,2)):null;if(!part)continue;part.forEach(m=>pnote(T(p)+H(),m,.12*bd*2,(soft?.3:.45)+rnd()*.1,o.piano));}
     return;
   }
-  const head=!!bar.head;
-  // ritmo: nunca la misma figura dos compases seguidos
-  let pool;
-  if(style==='bossa')pool=CRHY.bossa;
-  else if(style==='funk')pool=CRHY.funk;
-  else if(style==='ballad')pool=CRHY.ballad;
-  else if(style==='waltz')pool=CRHY.waltz;
-  else{const r=rnd(),busy=head?.05:.1+.35*I,sparse=head?.35:.4*(1-I);pool=r<sparse?CRHY.sparse:r<1-busy?CRHY.mid:CRHY.busy;}
-  let pat;for(let g=0;g<6;g++){pat=pick(pool);if(pat!==P.compPat)break;}P.compPat=pat;
+  const tempo=bar.tempo,speed=tempo>=200?'fast':tempo<100||style==='ballad'?'slow':'mid';
+  const pos=bar.pos??P.k,grp=Math.floor(pos/4),inG=pos%4;
+  // figura del grupo de 4 compases
+  let pat;
+  if(style==='bossa')pat=pick(CRHY.bossa).map(([b,l])=>[b,l>.45?'M':'S']);
+  else if(style==='funk')pat=pick(CRHY.funk).map(([b])=>[b,'S']);
+  else if(style==='waltz')pat=pick([[[1,'M'],[2,'M']],[[0,'L']],[[1,'L']],[[0,'S'],[1.5,'L']]]);
+  else{
+    if(P.cgKey!==grp+':'+speed){P.cgKey=grp+':'+speed;const pool=GROOVE[speed];P.cgA=pick(pool);let v;for(let g=0;g<5;g++){v=pick(pool);if(v!==P.cgA)break;}P.cgB=v;}
+    pat=inG===3?P.cgB:inG===1&&rnd()<.35?P.cgB:P.cgA;
+  }
   let hits=pat.filter(h=>h[0]<B).map(h=>h.slice());
-  for(const s of segs)if(!hits.some(h=>h[0]>=s.beat&&h[0]<s.beat+s.dur))hits.push([s.beat,Math.min(s.dur,1)*.6]);
+  for(const sg of segs)if(!hits.some(h=>h[0]>=sg.beat&&h[0]<sg.beat+sg.dur))hits.push([sg.beat,speed==='fast'?'S':'L']);
   if(soft&&rnd()<.5)hits=hits.slice(0,1);
   hits.sort((a,b)=>a[0]-b[0]);
-  // cada acorde se apaga antes de que suene el siguiente: nada se pisa
-  hits=hits.filter((h,i)=>i===0||h[0]-hits[i-1][0]>=.4);
-  hits.forEach((h,i)=>{const nb=i+1<hits.length?hits[i+1][0]:B;h[1]=Math.max(.2,Math.min(h[1],nb-h[0]-.12));});
+  hits=hits.filter((h,i)=>i===0||h[0]-hits[i-1][0]>=.5);
+  // relleno al final del grupo (no en rápido): el último acorde deja sitio
+  const fillHere=speed!=='fast'&&swingish(style)&&!soft&&inG===3&&rnd()<(speed==='slow'?.45:.3)&&I<.85;
+  const limit=fillHere?B-1.6:B;
+  hits=hits.filter(h=>h[0]<limit-.3);
   let lastEnd=0;
-  hits.forEach(([b,len])=>{
+  hits.forEach(([b,art],i)=>{
+    const nb=i+1<hits.length?hits[i+1][0]:limit;
+    let len=art==='S'?(speed==='fast'?.3:.4):art==='M'?Math.min(1,nb-b-.1):nb-b-.08;
+    len=Math.max(.25,Math.min(len,nb-b-.08));
     let c=chordAt(b),nx=nextC;
-    if(b>=B-.5&&nextC&&style!=='ballad'&&rnd()<.6)c=nextC;
+    if(b>=B-.5&&nextC&&rnd()<.6)c=nextC; // anticipación del acorde siguiente
     if(!c||c.nc)return;
-    for(const s of segs)if(s.beat>b){nx=s.c;break;}
-    const v=compVoice(c,nx,I);P.voicing=v;
-    const vel=(soft?.26:style==='ballad'?.36:.34+.12*I)+rnd()*.1,st=T(b)+H(),du=Math.max(.09,T(b+len)-T(b)-.02);
+    for(const sg of segs)if(sg.beat>b){nx=sg.c;break;}
+    let v=compVoice(c,nx,I,52,74);P.voicing=v;
+    if(speed==='fast'&&v.length>3)v=v.slice(0,3); // a tempo rápido, voicings de 3 notas
+    const acc=art==='S'&&i>0?.06:0;
+    const vel=(soft?.26:speed==='slow'?.34:.36)+.1*I+acc+(rnd()-.5)*.08;
+    const st=T(b)+H()+.004,du=Math.max(.08,T(b+len)-T(b)-.015);
     let vv=v.slice();
-    if(vv.length>=4&&rnd()<.3){const d=vv.splice(vv.length-2,1)[0]-12;if(d>=45)vv.unshift(d);else vv=v.slice();} // abierto: drop 2
-    const roll=style==='ballad'?.025:.004+rnd()*.01;
-    const top=vv[vv.length-1];
-    const move=len>=1.5&&rnd()<.2; // la voz de arriba se mueve, sin que se solape con la anterior
-    const moveAt=move?b+1:0,topDu=move?Math.max(.08,T(moveAt)-st-.02):du;
-    vv.forEach((m,i)=>{const isTop=i===vv.length-1;pnote(st+i*roll*(style==='ballad'?1:rnd()*1.5),m,isTop?topDu:du,vel*(isTop?1.1:.86+rnd()*.1),o.piano);});
-    if(move)pnote(T(moveAt),stepScale(top,rnd()<.55?-1:1,chordScale(c)),Math.max(.08,T(b+len)-T(moveAt)-.02),vel*.85,o.piano);
-    if(len>=1.2&&(head||style==='ballad')&&rnd()<.25){ // a dos manos: concha en la mano izquierda
-      const k=chordInfo(c.q);[k.third,k.sev??(k.kind==='min'?10:11)].forEach(iv=>pnote(st,nearestNote(mod12(c.pc+iv),50,45,56),du,vel*.7,o.piano));}
+    if(speed!=='fast'&&vv.length>=4&&rnd()<.25){const d=vv.splice(vv.length-2,1)[0]-12;if(d>=45)vv.unshift(d);else vv=v.slice();} // drop 2 (cabe en dos manos)
+    const roll=speed==='slow'&&rnd()<.4?.02:.004;
+    vv.forEach((m,k)=>pnote(st+k*roll*(.5+rnd()),m,du,vel*(k===vv.length-1?1.08:.88+rnd()*.08),o.piano));
+    if(speed==='slow'&&len>=1.5&&rnd()<.55){ // mano izquierda: concha grave
+      const ci=chordInfo(c.q);[ci.third,ci.sev??(ci.kind==='min'?10:11)].forEach(iv=>pnote(st,nearestNote(mod12(c.pc+iv),49,44,55),du,vel*.7,o.piano));}
     lastEnd=b+len;
   });
-  // rellenos solo en huecos reales y sin pisar acordes
-  if(swingish(style)&&!soft){
-    const one=segs.length===1&&!segs[0].c.nc;
-    if(bar.fillAfter&&rnd()<.3*(1-I*.5)&&lastEnd<=B-1.6)pianoFill(X,B-1.5,segs[segs.length-1].c,nextC);
-    else if(one&&lastEnd<=2.4&&rnd()<.15*(1-I*.5))pianoFill(X,2.5,segs[0].c,null);
-  }
+  if(fillHere&&lastEnd<=B-1.5)pianoFill(X,B-1.5,segs[segs.length-1].c,nextC);
 }
 function pianoLH(X){
   const {B,T,segs,o}=X;
@@ -1457,8 +1468,8 @@ const sameChord=(a,b)=>a&&b&&a.pc===b.pc&&a.q===b.q;
 function mkW(obj){const list=Object.entries(obj);return {list,tot:list.reduce((a,[,w])=>a+w,0)};}
 function saxSolo(X){lineEngine(X,P.ssolo,{lo:52,hi:77,center:64,orn:.32,phrase:[8,15],breath:[.5,.5,1],base:.56,lay:.008,jit:.012,gap:-.012,
   w:mkW({run:.3,arp:.1,xarp:.07,enc:.12,turn:.09,trip:.08,long:.11,seq:.13}),play:(t,n,d,v,leg,info)=>saxNote(t,n,d,v,X.o.sax,info)});}
-function pianoSolo(X){lineEngine(X,P.solo,{lo:60,hi:84,center:70,orn:.2,phrase:[10,18],breath:[.5,1],base:.5,lay:0,jit:.01,gap:0,
-  w:mkW({run:.32,arp:.1,xarp:.07,enc:.12,turn:.05,trip:.08,long:.11,seq:.15}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
+function pianoSolo(X){const f=X.bar.tempo>=200,sl=X.bar.tempo<100;lineEngine(X,P.solo,{lo:60,hi:84,center:70,orn:f?.04:sl?.25:.16,phrase:[10,18],breath:[.5,1],base:.5,lay:0,jit:.01,gap:0,
+  w:mkW(f?{run:.3,arp:.14,xarp:.04,enc:.1,turn:0,trip:.02,long:.22,seq:.18}:{run:.32,arp:.1,xarp:.07,enc:.12,turn:.05,trip:.08,long:.11,seq:.15}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
 function bassSolo(X){lineEngine(X,P.bsolo,{lo:38,hi:58,center:46,orn:.08,phrase:[6,12],breath:[1,1.5],base:.72,lay:.004,jit:.012,gap:.01,
   w:mkW({run:.25,arp:.17,xarp:.04,enc:.1,turn:.02,trip:.05,long:.27,seq:.1}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
 const DCELLS=[
