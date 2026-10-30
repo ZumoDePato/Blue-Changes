@@ -221,7 +221,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v17</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v18</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -281,6 +281,7 @@ a{color:var(--sky)}
       </div>
       <div class="chart" id="chart"></div>
       <p class="hint" id="chartHint">Toca un compás para empezar desde ahí (modo libre).</p>
+      <button class="btn" id="pdfBtn">Compartir PDF</button>
     </section>
 
     <!-- PRÁCTICA -->
@@ -441,6 +442,14 @@ a{color:var(--sky)}
     <div class="flist" id="sgFolders"></div>
     <button class="btn" id="sgNewF">Nueva carpeta con esta canción</button>
     <div class="grid2"><button class="btn" id="sgEdit">Editar acordes</button><button class="btn danger" id="sgDel">Borrar canción</button></div>
+  </div>
+
+  <div class="sheet" id="shPdf">
+    <div class="grab"></div>
+    <h2>PDF listo</h2>
+    <p class="hint" id="pdfInfo"></p>
+    <img id="pdfPrev" alt="Vista previa del PDF" style="width:100%;max-height:320px;object-fit:contain;background:#fff;border-radius:10px">
+    <div class="grid2"><button class="btn primary" id="pdfShare">Compartir</button><button class="btn" id="pdfDown">Descargar</button></div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1630,6 +1639,7 @@ function renderHead(){
   const ipc=mod12(cpc+S.inst),ish=sharpsFor(ipc,k.minor),instKey=spell(ipc,ish)+(k.minor?'m':'');
   const IN={0:'Concierto',2:'Instr. en B♭',9:'Instr. en E♭',7:'Instr. en F'}[S.inst];
   $('#keyMain').textContent=S.inst?instKey:concert;
+  $('#pdfBtn').textContent=`Compartir PDF en ${S.inst?instKey:concert}`;
   $('#keyInst').textContent=S.inst?`${IN} · suena ${concert}`:(S.transpose?`Original ${spell(k.pc,sharpsFor(k.pc,k.minor))}${k.minor?'m':''}`:'Concierto');
   $('#trInfo').textContent=S.transpose?`Suena en ${concert} (original ${spell(k.pc,sharpsFor(k.pc,k.minor))}${k.minor?'m':''})`:`Original: ${concert}`;
   $('#instInfo').textContent={0:'Piano, guitarra, flauta, trombón, voz.',2:'Trompeta, saxo tenor, saxo soprano, clarinete.',9:'Saxo alto, saxo barítono.',7:'Trompa.'}[S.inst]+(S.inst?` Lees en ${instKey}.`:'');
@@ -1860,6 +1870,107 @@ $('#impFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)retu
 $('#scrim').addEventListener('click',closeSheets);
 $('#edSave').addEventListener('click',saveEdit);$('#edDel').addEventListener('click',delEdit);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&P.playing)pause();});
+
+
+/* ============ PDF del cifrado, en el tono actual ============
+   Se dibuja cada página en un canvas (blanco y negro, apto para imprimir) y se empaqueta
+   como PDF A4 sin librerías externas. */
+function pdfFromJpegs(jpegs,iw,ih){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0;
+  const push=x=>{const b=typeof x==='string'?enc.encode(x):x;parts.push(b);len+=b.length;};
+  const obj=(n,body,stream)=>{offs[n]=len;push(`${n} 0 obj\n${body}`);if(stream){push('\nstream\n');push(stream);push('\nendstream');}push('\nendobj\n');};
+  push(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));
+  const N=jpegs.length,kids=[];for(let i=0;i<N;i++)kids.push(`${3+i*3} 0 R`);
+  obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2,`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${N} >>`);
+  jpegs.forEach((j,i)=>{const pg=3+i*3,ct=pg+1,im=pg+2,cs='q 595 0 0 842 0 0 cm /Im0 Do Q';
+    obj(pg,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ct} 0 R >>`);
+    obj(ct,`<< /Length ${cs.length} >>`,enc.encode(cs));
+    obj(im,`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.length} >>`,j);});
+  const xr=len,total=3+N*3;let x=`xref\n0 ${total}\n0000000000 65535 f \n`;
+  for(let n=1;n<total;n++)x+=String(offs[n]).padStart(10,'0')+' 00000 n \n';
+  push(x+`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
+  return new Blob(parts,{type:'application/pdf'});
+}
+async function buildChartPdf(){
+  const s=CUR.song;if(!s)return null;
+  const CH='"Barlow Condensed","Arial Narrow",Arial,sans-serif',UI='Barlow,Arial,sans-serif',SER='"DM Serif Display",Georgia,serif';
+  try{await Promise.all(['700 40px "Barlow Condensed"','400 40px "DM Serif Display"','500 20px Barlow','700 20px Barlow'].map(f=>document.fonts.load(f)));}catch(e){}
+  const W=1240,H=1754,M=90,FOOT=70,shift=dispShift(),sh=dispSharps();
+  const k=parseKey(s.key),cpc=mod12(k.pc+S.transpose),csh=sharpsFor(cpc,k.minor),ipc=mod12(cpc+S.inst),ish=sharpsFor(ipc,k.minor);
+  const concert=spell(cpc,csh)+(k.minor?'m':''),shown=spell(ipc,ish)+(k.minor?'m':'');
+  const IN={0:'Concierto',2:'Instrumento en B♭',9:'Instrumento en E♭',7:'Instrumento en F'}[S.inst];
+  const pages=[];let cv,g,y;
+  const newPage=first=>{cv=document.createElement('canvas');cv.width=W;cv.height=H;g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.fillStyle='#000';g.strokeStyle='#000';g.textBaseline='alphabetic';pages.push(cv);y=M;if(first)header();else y=M+20;};
+  const header=()=>{
+    let fs=66;g.textAlign='left';g.font=`400 ${fs}px ${SER}`;while(g.measureText(s.title).width>W-2*M-270&&fs>34){fs-=3;g.font=`400 ${fs}px ${SER}`;}
+    g.fillStyle='#000';g.fillText(s.title,M,y+60);
+    g.font=`500 28px ${UI}`;g.fillStyle='#444';if(s.composer)g.fillText(s.composer,M,y+104);
+    const ts=s.bars[0]?.ts||4;g.font=`500 24px ${UI}`;g.fillStyle='#666';
+    g.fillText(`${STYLE_NAME[songStyle()]||'Swing'} · ${P.tempo} BPM · ${ts}/4`,M,y+140);
+    // caja del tono
+    const bx=W-M-250,by=y+2,bw2=250,bh=146;g.lineWidth=3;g.strokeStyle='#000';g.beginPath();g.roundRect?g.roundRect(bx,by,bw2,bh,16):g.rect(bx,by,bw2,bh);g.stroke();
+    g.textAlign='center';g.fillStyle='#666';g.font=`700 18px ${UI}`;g.fillText('TONO',bx+bw2/2,by+30);
+    g.fillStyle='#000';g.font=`700 64px ${CH}`;g.fillText(shown,bx+bw2/2,by+86);
+    g.fillStyle='#555';g.font=`500 19px ${UI}`;
+    const l1=S.inst?IN:(S.transpose?'Transpuesto':'Concierto'),l2=S.inst?`suena en ${concert}`:(S.transpose?`original ${spell(k.pc,sharpsFor(k.pc,k.minor))}${k.minor?'m':''}`:'');
+    g.fillText(l1,bx+bw2/2,by+112);if(l2)g.fillText(l2,bx+bw2/2,by+136);
+    g.fillStyle='#000';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.moveTo(M,y+160);g.lineTo(W-M,y+160);g.stroke();y+=190;};
+  const drawChord=(c,x,w,cy,size)=>{
+    g.textAlign='left';g.fillStyle='#000';
+    if(c.nc){g.font=`700 ${size*.8}px ${CH}`;g.textAlign='center';g.fillText('N.C.',x+w/2,cy+size*.3);return;}
+    const root=spell(c.pc+shift,sh),q=prettyQ(c.q),bass=c.bass!=null?'/'+spell(c.bass+shift,sh):'';let sz=size;
+    const meas=()=>{g.font=`700 ${sz}px ${CH}`;const a=g.measureText(root).width;g.font=`700 ${sz*.62}px ${CH}`;const b=q?g.measureText(q).width+2:0;g.font=`700 ${sz*.72}px ${CH}`;const d=bass?g.measureText(bass).width:0;return a+b+d;};
+    let tot=meas();while(tot>w-6&&sz>16){sz-=2;tot=meas();}
+    let px=x+(w-tot)/2;const by=cy+sz*.32;
+    g.font=`700 ${sz}px ${CH}`;g.fillText(root,px,by);px+=g.measureText(root).width;
+    if(q){g.font=`700 ${sz*.62}px ${CH}`;g.fillText(q,px+2,by-sz*.38);px+=g.measureText(q).width+2;}
+    if(bass){g.font=`700 ${sz*.72}px ${CH}`;g.fillText(bass,px,by);}};
+  newPage(true);
+  const rowH=160,bw=(W-2*M)/4;let col=0,rowTop=0;
+  const dots=(x,mid)=>{[-14,14].forEach(dy=>{g.beginPath();g.arc(x,mid+dy,5,0,7);g.fill();});};
+  s.bars.forEach((b,i)=>{
+    if(col===0||(b.section&&col!==0)){col=0;if(y+rowH>H-FOOT-10)newPage(false);rowTop=y;y+=rowH;}
+    const x0=M+col*bw,x1=x0+bw,top=rowTop+34,bot=rowTop+rowH,mid=(top+bot)/2;
+    // barras
+    g.fillStyle='#000';g.strokeStyle='#000';g.lineWidth=2.5;
+    const vline=(x,w2)=>{g.lineWidth=w2;g.beginPath();g.moveTo(x,top);g.lineTo(x,bot);g.stroke();};
+    if(b.repStart){vline(x0+3,7);vline(x0+14,2.5);dots(x0+28,mid);}else vline(x0,2.5);
+    const last=i===s.bars.length-1;
+    if(b.repEnd){vline(x1-3,7);vline(x1-14,2.5);dots(x1-28,mid);}else if(last){vline(x1-2,2.5);vline(x1-10,2.5);}else if(col===3)vline(x1,2.5);
+    g.strokeStyle='#ccc';g.lineWidth=1;g.beginPath();g.moveTo(x0,bot);g.lineTo(x1,bot);g.stroke();
+    // sección y final
+    let lx=x0+8;
+    if(b.section){g.font=`700 24px ${UI}`;const tw=g.measureText(b.section).width+18;g.fillStyle='#000';g.beginPath();g.roundRect?g.roundRect(lx,rowTop+2,tw,30,6):g.rect(lx,rowTop+2,tw,30);g.fill();g.fillStyle='#fff';g.textAlign='center';g.fillText(b.section,lx+tw/2,rowTop+26);lx+=tw+10;}
+    if(b.ending){g.fillStyle='#000';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.moveTo(x0+6,top+22);g.lineTo(x0+6,top+4);g.lineTo(x1-8,top+4);g.stroke();g.textAlign='left';g.font=`700 22px ${UI}`;g.fillText(`${b.ending}.`,x0+14,top+26);}
+    if(b.repEnd&&b.times>2){g.fillStyle='#000';g.textAlign='right';g.font=`700 20px ${UI}`;g.fillText(`${b.times}×`,x1-10,rowTop+24);}
+    // contenido
+    g.fillStyle='#000';
+    if(b.rep){g.textAlign='center';g.font=`700 72px ${CH}`;g.fillText('%',(x0+x1)/2,mid+24);}
+    else{
+      const ch=b.chords.slice(0,4),n=ch.length,ix=x0+(b.repStart?42:20),iw=bw-(b.repStart?42:20)-(b.repEnd?42:20);
+      if(n===1)drawChord(ch[0],ix,iw,mid,66);
+      else if(n===2)ch.forEach((c,j)=>drawChord(c,ix+j*iw/2,iw/2,mid,52));
+      else{const hw=iw/2,hh=(bot-top)/2;ch.forEach((c,j)=>{const r=j>>1,cc=j&1;if(n===3&&j===2)drawChord(c,ix,iw,top+hh*1.5-4,40);else drawChord(c,ix+cc*hw,hw,top+hh*(r+.5)-2+(r?4:0),40);});}
+    }
+    col=(col+1)%4;
+  });
+  // pie de página
+  pages.forEach((p,i)=>{const c2=p.getContext('2d');c2.fillStyle='#666';c2.font=`500 22px ${UI}`;c2.textAlign='left';c2.fillText(`Blue Changes · ${s.title} · en ${shown}`,M,H-34);c2.textAlign='right';c2.fillText(`${i+1} / ${pages.length}`,W-M,H-34);});
+  const jpegs=pages.map(p=>{const b64=p.toDataURL('image/jpeg',.92).split(',')[1],bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
+  const name=`${s.title.replace(/[\\/:*?"<>|]+/g,' ').trim()} (${shown}).pdf`;
+  return {blob:pdfFromJpegs(jpegs,W,H),name,preview:pages[0].toDataURL('image/jpeg',.7),pages:pages.length,title:s.title,shown};
+}
+let PDF=null;
+function downloadPdf(){if(!PDF)return;const u=URL.createObjectURL(PDF.blob),a=document.createElement('a');a.href=u;a.download=PDF.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);}
+$('#pdfBtn').addEventListener('click',async()=>{const b=$('#pdfBtn'),t=b.textContent;b.disabled=true;b.textContent='Creando PDF…';
+  try{PDF=await buildChartPdf();if(PDF){$('#pdfPrev').src=PDF.preview;$('#pdfInfo').textContent=`${PDF.title} en ${PDF.shown} · ${PDF.pages} ${PDF.pages===1?'página':'páginas'}`;openSheet('#shPdf');}}
+  catch(e){console.error(e);toast('No se pudo crear el PDF');}
+  b.disabled=false;b.textContent=t;});
+$('#pdfShare').addEventListener('click',async()=>{if(!PDF)return;const f=new File([PDF.blob],PDF.name,{type:'application/pdf'});
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:PDF.title});return;}}catch(e){if(e&&e.name==='AbortError')return;}
+  downloadPdf();toast('Este navegador no puede compartir archivos; se ha descargado el PDF');});
+$('#pdfDown').addEventListener('click',downloadPdf);
 
 /* ============ arranque ============ */
 (function boot(){
