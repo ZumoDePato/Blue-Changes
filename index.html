@@ -682,12 +682,21 @@ async function initAudio(){
   try{const b=ctx.createBuffer(1,1,22050),s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(0);}catch(e){}
   try{ctx.resume();}catch(e){}
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-12;comp.ratio.value=2;comp.knee.value=12;comp.attack.value=.012;comp.release.value=.25;
-  const master=ctx.createGain();master.gain.value=1.35;master.connect(comp);comp.connect(ctx.destination);
+  const master=ctx.createGain();master.gain.value=1.12;master.connect(comp);comp.connect(ctx.destination);
   AU.master=master;
   AU.conv=ctx.createConvolver();AU.irs={club:makeIR(ctx,1.3,.55),hall:makeIR(ctx,2.6,.4)};AU.conv.buffer=AU.irs.club;
   AU.rev=ctx.createGain();AU.conv.connect(AU.rev);AU.rev.connect(master);
-  const sends={piano:.3,bass:.1,drums:.24,click:0},pans={piano:.22,bass:-.04,drums:0,click:0};
-  for(const k of ['piano','bass','drums','click']){const g=ctx.createGain();let out=g;if(ctx.createStereoPanner){const pn=ctx.createStereoPanner();pn.pan.value=pans[k];g.connect(pn);out=pn;}out.connect(master);const s=ctx.createGain();s.gain.value=sends[k];out.connect(s);s.connect(AU.conv);AU.ch[k]=g;}
+  const sends={piano:.3,bass:.1,drums:.3,click:0},pans={piano:.22,bass:-.04,drums:0,click:0};
+  for(const k of ['piano','bass','drums','click']){const g=ctx.createGain();let out=g;
+    if(k==='drums'){ // bus de batería: compresión suave, un poco de saturación y ecualización de sala
+      const dc=ctx.createDynamicsCompressor();dc.threshold.value=-20;dc.ratio.value=2.6;dc.knee.value=10;dc.attack.value=.01;dc.release.value=.14;
+      const sh=ctx.createWaveShaper(),cv=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;cv[i]=Math.tanh(1.6*x)/Math.tanh(1.6);}sh.curve=cv;
+      const lo=ctx.createBiquadFilter();lo.type='lowshelf';lo.frequency.value=110;lo.gain.value=2;
+      const mid=ctx.createBiquadFilter();mid.type='peaking';mid.frequency.value=420;mid.Q.value=.9;mid.gain.value=-2.5;
+      const hi=ctx.createBiquadFilter();hi.type='highshelf';hi.frequency.value=9000;hi.gain.value=-2.5;
+      const mk=ctx.createGain();mk.gain.value=1.25;
+      g.connect(dc);dc.connect(sh);sh.connect(lo);lo.connect(mid);mid.connect(hi);hi.connect(mk);out=mk;}
+    if(ctx.createStereoPanner){const pn=ctx.createStereoPanner();pn.pan.value=pans[k];out.connect(pn);out=pn;}out.connect(master);const s=ctx.createGain();s.gain.value=sends[k];out.connect(s);s.connect(AU.conv);AU.ch[k]=g;}
   AU.waves.piano=wave(ctx,[1,.62,.4,.26,.2,.13,.1,.07,.05,.035,.025,.018]);
   AU.waves.organ=wave(ctx,[1,.9,.55,.75,0,.4,0,.35,0,0,0,.18,0,0,0,.12]);
   const nb=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate),nd=nb.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=rnd()*2-1;AU.noise=nb;
@@ -738,16 +747,24 @@ async function renderDrums(sr){
   const res=await Promise.all(names.map(n=>R(D[n][0],D[n][1])));
   const out={};names.forEach((n,i)=>out[n]=res[i]);return out;
 }
+const DPAN={ride:-.3,bell:-.3,crash:.38,splash:.42,hh:.3,hhfoot:.28,hhopen:.3,tomM:.18,tomL:-.2,rim:.05,shaker:.25,btap:.08};
+const DLVL={kick:1.15,snare:.9,rim:.8,tomL:.85,tomM:.85,hh:.62,hhfoot:.7,hhopen:.55,crash:.62,splash:.55,ride:.78,bell:.6,shaker:.5,btap:.9};
+const ALIAS={ride2:'ride',snare2:'snare',tomH:'tomM'};
 function hit(name,t,vel,out){
-  if(vel<=0)return;let b=AU.buf[name],gv=clamp(vel,0,1.2);
-  const rn=(name==='ride'&&vel>.5&&AU.real.ride2&&rnd()<.5)?'ride2':(name==='snare'&&vel>.6&&AU.real.snare2)?'snare2':name;
-  const r=AU.real[rn];if(r){b=r.b;gv=r.g*Math.pow(clamp(vel,0,1.2),1.2)*({ride:.75,ride2:.6,crash:.7,kick:1.1,hh:.6,hhfoot:.7,bell:.5,btap:.9}[rn]||.85);}
-  if(name==='rim'&&AU.real.snare){ // aro: la caja real filtrada y muy corta
-    const r2=AU.real.snare,s=AU.ctx.createBufferSource();s.buffer=r2.b;const f=AU.ctx.createBiquadFilter();f.type='highpass';f.frequency.value=1800;const g=AU.ctx.createGain();t=Math.max(t,AU.ctx.currentTime);g.gain.setValueAtTime(r2.g*vel*1.1,t);g.gain.setTargetAtTime(0,t+.012,.018);s.connect(f);f.connect(g);g.connect(out);s.start(t);s.stop(t+.25);return;}
-  if(!b)return;
-  const s=AU.ctx.createBufferSource();s.buffer=b;const g=AU.ctx.createGain();g.gain.value=gv;
-  const PAN={ride:-.32,ride2:-.32,crash:.38,hh:.3,hhfoot:.28,tomH:.22,tomM:.02,tomL:-.22,bell:-.25,btap:.1};
-  if(PAN[rn]!=null&&AU.ctx.createStereoPanner){const pn=AU.ctx.createStereoPanner();pn.pan.value=PAN[rn];g.connect(pn);pn.connect(out);s.connect(g);s.start(Math.max(t,AU.ctx.currentTime));return;}s.connect(g);g.connect(out);s.start(Math.max(t,AU.ctx.currentTime));
+  if(vel<=0)return;t=Math.max(t,AU.ctx.currentTime);
+  const nm=ALIAS[name]||name,lay=AU.real[nm];
+  if(lay&&lay.length){
+    const n=lay.length,v=clamp(vel,0,1.25);
+    let li=clamp(Math.round(v*(n-.6)+(rnd()-.5)*.9),0,n-1); // capa según la fuerza, con algo de azar
+    const s=AU.ctx.createBufferSource();s.buffer=lay[li];
+    s.playbackRate.value=(name==='tomH'?1.2:1)*(1+(rnd()-.5)*.018); // cada golpe ligeramente distinto
+    const g=AU.ctx.createGain();g.gain.value=lay.g*(DLVL[nm]||.8)*(.45+.55*Math.min(1,v/((li+.6)/(n-.4))))*Math.min(1,.35+v*1.6)*(.93+rnd()*.14);
+    s.connect(g);
+    if(DPAN[nm]!=null&&AU.ctx.createStereoPanner){const pn=AU.ctx.createStereoPanner();pn.pan.value=DPAN[nm];g.connect(pn);pn.connect(out);}else g.connect(out);
+    s.start(t);return;
+  }
+  const b=AU.buf[name];if(!b)return;
+  const s=AU.ctx.createBufferSource();s.buffer=b;const g=AU.ctx.createGain();g.gain.value=clamp(vel,0,1.2)*(name==='swish'?.7:1);s.connect(g);g.connect(out);s.start(t);
 }
 function pnote(t,midi,dur,vel,out){
   const ctx=AU.ctx,f=mtof(midi),tim=S.piano.tim;vel=clamp(vel,.05,1);t=Math.max(t,ctx.currentTime);
@@ -801,18 +818,21 @@ function bnote(t,midi,dur,vel,out){
 const SMP_DIR='samples/';
 const SMP={piano:{dir:'piano',lo:36,hi:96,lvl:.62,rel:.12},rhodes:{dir:'rhodes',lo:36,hi:96,lvl:.7,rel:.16},vibes:{dir:'vibes',lo:48,hi:96,lvl:.62,rel:.45},organ:{dir:'organ',lo:36,hi:96,lvl:.32,rel:.05},
   upright:{dir:'upright',lo:24,hi:63,lvl:1.05,rel:.06},electric:{dir:'electric',lo:24,hi:63,lvl:.9,rel:.05},synth:{dir:'synth',lo:24,hi:63,lvl:.6,rel:.05}};
-const DRUMS=['ride','ride2','crash','kick','snare','snare2','hh','hhfoot','bell','tomH','tomM','tomL','btap'];
+const KIT={kick:5,snare:5,rim:5,tomL:5,tomM:5,hh:5,hhfoot:5,hhopen:5,crash:5,splash:5,ride:5,bell:5,shaker:5,btap:1};
+const KITFILES=Object.entries(KIT).flatMap(([n,c])=>Array.from({length:c},(_,i)=>n+'_'+(i+1)));
 const RAW={},LOADING={};AU.smp={};AU.real={};
 function fetchRaw(path){if(!RAW[path])RAW[path]=fetch(SMP_DIR+path).then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();});RAW[path].catch(()=>{});return RAW[path];}
 function instNotes(name){const d=SMP[name],a=[];for(let m=d.lo;m<=d.hi;m+=3)a.push(m);return a;}
-function prefetch(name){try{if(name==='drums')DRUMS.forEach(n=>fetchRaw('drums/'+n+'.mp3'));else instNotes(name).forEach(m=>fetchRaw(SMP[name].dir+'/'+m+'.mp3'));}catch(e){}}
+function prefetch(name){try{if(name==='drums')KITFILES.forEach(n=>fetchRaw('drums/'+n+'.mp3'));else instNotes(name).forEach(m=>fetchRaw(SMP[name].dir+'/'+m+'.mp3'));}catch(e){}}
 function decode(ab){return new Promise((res,rej)=>{try{const p=AU.ctx.decodeAudioData(ab.slice(0),res,rej);if(p&&p.then)p.then(res,rej);}catch(e){rej(e);}});}
 function normGain(b){let pk=0;for(let c=0;c<b.numberOfChannels;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i+=3){const v=Math.abs(d[i]);if(v>pk)pk=v;}}return pk>0?.8/pk:1;}
 function loadInst(name){
   if(LOADING[name])return LOADING[name];
   LOADING[name]=(async()=>{
-    if(name==='drums'){const out={};await Promise.all(DRUMS.map(async n=>{try{const b=await decode(await fetchRaw('drums/'+n+'.mp3'));out[n]={b,g:normGain(b)};}catch(e){}}));
-      if(Object.keys(out).length>=8){AU.real=out;return true;}return false;}
+    if(name==='drums'){const out={};let ok=0;
+      await Promise.all(KITFILES.map(async f=>{try{const b=await decode(await fetchRaw('drums/'+f+'.mp3'));const [n,i]=f.split('_');(out[n]=out[n]||[])[+i-1]=b;ok++;}catch(e){}}));
+      for(const n in out){out[n]=out[n].filter(Boolean);let pk=0;out[n].forEach(b=>{const g=.8/normGain(b);if(g>pk)pk=g;});out[n].g=pk>0?.8/pk:1;} // misma ganancia para todas las capas: la dinámica es la grabada
+      if(ok>=40){AU.real=out;return true;}return false;}
     const map={};await Promise.all(instNotes(name).map(async m=>{try{const b=await decode(await fetchRaw(SMP[name].dir+'/'+m+'.mp3'));map[m]={b,g:normGain(b)};}catch(e){}}));
     if(Object.keys(map).length>=4){AU.smp[name]=map;return true;}return false;
   })();
@@ -918,7 +938,7 @@ function scheduleBar(bar,t0,next){
 }
 function drumsBand(X,light){
   const {B,T,H,bar,kit,style,o,I}=X,D=(n,b,v)=>hit(n,T(b)+H(),v*(light?.6:1)*(.9+rnd()*.2),o.drums);
-  if((bar.segStart||bar.sectionStart)&&P.k>S.countIn&&!light){if(kit==='brushes')D('ride',0,.3);else if(rnd()<.85)D('crash',0,.36+.15*I);D('kick',0,.45+.2*I);}
+  if((bar.segStart||bar.sectionStart)&&P.k>S.countIn&&!light){if(kit==='brushes')D('ride',0,.3);else if(rnd()<.85)D(rnd()<.3?'splash':'crash',0,.36+.15*I);D('kick',0,.45+.2*I);}
   const brushes=kit==='brushes';
   if(style==='swing'||style==='waltz'){
     const twoFeel=bar.twoFeel;
@@ -946,7 +966,7 @@ function drumsBand(X,light){
     const pat=P.k%2===0?[0,1,1.5,2.5,3.5]:[0,.5,1.5,2,3];pat.forEach(p=>p<B&&D(brushes?'block':'bell',p,.36));
     D('kick',1.5,.42);if(B>3)D('kick',3,.5);D('rim',1,.4);if(rnd()<.3+.3*I&&B>3)D(pick(['tomL','tomM']),3.5,.4);
   }else{
-    for(let b=0;b<B;b++){D('hh',b,.45);D('hh',b+.5,.25);if(b%2)D('snare',b,.75);else D('kick',b,.72);if(rnd()<.25)D('snare',b+.75,.12);}
+    for(let b=0;b<B;b++){D('hh',b,.45);if(b===B-1&&rnd()<.3)D('hhopen',b+.5,.4);else D('hh',b+.5,.25);if(b%2)D('snare',b,.75);else D('kick',b,.72);if(rnd()<.25)D('snare',b+.75,.12);}
     D('kick',1.5,.5);
   }
   if(bar.fillAfter&&!light&&swingish(style)){
@@ -1007,14 +1027,14 @@ function walk(s,tgt){
 }
 /* ---------- piano: voicings variados, ritmos que crecen, aproximaciones y rellenos ---------- */
 const VOI={
-  maj:[[4,7,11,14],[11,14,16,19],[7,11,14,16],[4,11,14,19],[2,4,7,11]],
+  maj:[[4,7,11,14],[11,14,16,19],[7,11,14,16],[4,11,14,19],[2,4,7,11],[4,9,11,14],[7,11,14,16,21]],
   majlyd:[[4,11,14,18],[7,11,14,18],[11,14,16,18]],
   six:[[4,9,14,19],[4,7,9,14],[2,4,7,9],[9,14,16,19]],
-  min:[[3,7,10,14],[10,14,15,19],[5,10,15,19],[3,10,14,17],[7,10,14,15]],
+  min:[[3,7,10,14],[10,14,15,19],[5,10,15,19],[3,10,14,17],[7,10,14,15],[3,5,10,14],[10,15,17,19,22]],
   minmaj:[[3,7,11,14],[11,14,15,19]],
   m6:[[3,9,14,19],[3,7,9,14],[9,14,15,19]],
-  dom:[[4,9,10,14],[10,14,16,21],[4,10,14,21],[10,16,21,26]],
-  alt:[[4,10,15,20],[10,13,16,20],[4,10,13,20],[10,15,16,20]],
+  dom:[[4,9,10,14],[10,14,16,21],[4,10,14,21],[10,16,21,26],[4,10,14,16,21],[10,14,16,19]],
+  alt:[[4,10,15,20],[10,13,16,20],[4,10,13,20],[10,15,16,20],[4,10,15,21],[10,16,20,25],[4,10,20,24,27]],
   lyd:[[4,10,14,18],[10,14,18,21]],
   sus:[[5,10,14,21],[10,14,17,21],[5,10,14,19]],
   hdim:[[3,6,10,17],[6,10,15,17],[0,3,6,10],[3,6,10,14]],
@@ -1059,7 +1079,7 @@ const CRHY={
   funk:[[[0,.2],[1.5,.2],[2.5,.2],[3.5,.2]],[[.5,.2],[1.5,.2],[3,.3]]],
 };
 function pianoFill(X,b0,c,target){ // pequeña frase del piano en un hueco
-  const {T,o,bd}=X,sc=chordScale(c);let n=nearestNote(pick(chordTones(c)),78,72,86);const len=pick([3,4]);
+  const {T,o,bd}=X,sc=chordScale(c);let n=nearestNote(pick(chordTones(c)),78,72,86);const len=pick([2,3,3,4]);
   for(let i=0;i<len;i++){const b=b0+i*.5;const last=i===len-1;
     if(last&&target)n=nearestNote(pick(chordTones(target)),n,64,86);
     pnote(T(b)+(rnd()-.5)*.008,n,Math.max(.08,(T(b+.5)-T(b))*(last?1.6:.95)),.34+rnd()*.08,o.piano);
@@ -1095,8 +1115,14 @@ function pianoComp(X,soft){
     const vel=(soft?.3:style==='ballad'?.4:.44+.1*I)+rnd()*.1,st=T(b)+H(),du=Math.max(.09,T(b+len)-T(b));
     const isChange=segs.some(s=>s.beat===b);
     if(isChange&&b>=.5&&swingish(style)&&rnd()<.05+.12*I){const sl=rnd()<.6?1:-1;v.forEach(m=>pnote(T(b-.5)+H(),m+sl,bd*.3,vel*.8,o.piano));} // acorde de aproximación
-    const roll=style==='ballad'?.03:.006;
-    v.forEach((m,i)=>pnote(st+i*roll*(style==='ballad'?1:rnd()),m,du,vel*(i===v.length-1?1.1:.9),o.piano));
+    let vv=v.slice();
+    if(vv.length>=4&&rnd()<.35){const d=vv.splice(vv.length-2,1)[0]-12;if(d>=43)vv.unshift(d);else vv=v.slice();} // abierto: drop 2
+    if(rnd()<.12&&len>=1){const lo=vv[0]-12;if(lo>=40)vv.unshift(lo);} // grave para abrir el acorde
+    const roll=style==='ballad'?.03:.004+rnd()*.014;
+    const top=vv[vv.length-1];
+    if(rnd()<.1+.08*I)pnote(st-.035,top-1,.05,vel*.6,o.piano); // apoyatura en la voz de arriba
+    vv.forEach((m,i)=>pnote(st+i*roll*(style==='ballad'?1:rnd()*1.5),m,du,vel*(i===vv.length-1?1.12:.86+rnd()*.1),o.piano));
+    if(len>=1.4&&rnd()<.3){const ns=stepScale(top,rnd()<.55?-1:1,chordScale(c));pnote(st+bd*(1+(rnd()<.5?.5:0)),ns,Math.max(.1,du-bd),vel*.82,o.piano);} // la voz de arriba se mueve
     if(len>=1.2&&(head||style==='ballad')&&rnd()<.4){ // a dos manos: concha en la mano izquierda
       const k=chordInfo(c.q);[k.third,k.sev??(k.kind==='min'?10:11)].forEach(iv=>pnote(st,nearestNote(mod12(c.pc+iv),50,45,56),du,vel*.75,o.piano));}
     if(style==='ballad'&&rnd()<.45){const top=v[v.length-1];pnote(st+bd*(len>2?2:1),stepScale(top,rnd()<.5?1:-1,chordScale(c)),bd*.9,vel*.75,o.piano);}
@@ -1105,8 +1131,11 @@ function pianoComp(X,soft){
   // rellenos: al final de la vuelta o en acordes largos, solo si no hay mucha intensidad
   if(swingish(style)&&!soft){
     const one=segs.length===1&&!segs[0].c.nc;
-    if(bar.fillAfter&&rnd()<.3*(1-I*.6)&&lastEnd<=B-1.5)pianoFill(X,B-1.5,segs[segs.length-1].c,nextC);
-    else if(one&&lastEnd<=2.5&&rnd()<.1*(1-I*.5))pianoFill(X,2.5,segs[0].c,null);
+    if(bar.fillAfter&&rnd()<.38*(1-I*.5)&&lastEnd<=B-1.5)pianoFill(X,B-1.5,segs[segs.length-1].c,nextC);
+    else if(one&&lastEnd<=2.5&&rnd()<.2*(1-I*.5))pianoFill(X,2.5,segs[0].c,null);
+    else if(lastEnd<=B-1&&rnd()<.12*(1-I*.4)){ // notitas: dos notas en tercera o sexta en el hueco
+      const c=chordAt(B-1);if(c&&!c.nc){const tn=chordTones(c),a=nearestNote(pick(tn),76,70,84),b2=stepScale(stepScale(a,-1,tn.concat(chordScale(c))),-1,chordScale(c));
+        const bb=B-1+(rnd()<.5?.5:0);[a,b2].forEach(m=>pnote(T(bb)+rnd()*.01,m,bd*.45,.32+rnd()*.06,o.piano));}}
   }
 }
 function pianoLH(X){
