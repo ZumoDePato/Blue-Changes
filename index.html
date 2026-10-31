@@ -117,6 +117,12 @@ input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 .qsel.multi>button{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 15px var(--ui);padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
 .qpanel{display:none;position:fixed;left:8px;top:-1000px;width:210px;max-height:60vh;overflow-y:auto;z-index:40;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
 .qsel.open .qpanel{display:flex;flex-direction:column}
+.solist{display:flex;flex-direction:column;gap:4px}
+.solist button{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:rgba(4,11,28,.45);padding:13px 14px;border-radius:12px;font:600 17px var(--ui);color:var(--text);text-align:left}
+.solist button:active{background:rgba(255,255,255,.06)}
+.solist .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--mute);flex:none;display:grid;place-items:center;font:700 14px var(--ui)}
+.solist button.on{border-color:rgba(242,182,75,.5)}
+.solist button.on .box{background:var(--brass);border-color:var(--brass);color:#1a1205}
 .qpanel button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:11px 10px;border-radius:10px;font:600 16px var(--ui);color:var(--text);text-align:left}
 .qpanel button:active{background:rgba(255,255,255,.06)}
 .qpanel .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--mute);flex:none;display:grid;place-items:center;font:700 13px var(--ui)}
@@ -296,12 +302,7 @@ a{color:var(--sky)}
         <label class="qsel" style="--cw:116px"><small>Estilo</small><select id="qStyle" aria-label="Estilo"><option value="auto">Auto</option><option value="swing">Swing</option><option value="bossa">Bossa nova</option><option value="ballad">Balada</option><option value="latin">Latin</option><option value="funk">Funk</option><option value="waltz">Vals jazz</option></select></label>
         <label class="qsel" style="--cw:156px"><small>Cifrado para</small><select id="qInst" aria-label="Instrumento"><option value="0">C · concierto</option><option value="2">B♭ · trompeta, tenor</option><option value="9">E♭ · saxo alto</option><option value="7">F · trompa</option></select></label>
         <div class="qsel multi" id="qSolos" style="--cw:140px"><small>Solos</small><button type="button" id="qSolosBtn" aria-haspopup="listbox" aria-expanded="false">Ninguno</button>
-          <div class="qpanel" id="qSolosPanel" role="listbox" aria-multiselectable="true">
-            <button type="button" data-inst="sax" role="option"><span class="box"></span><span>Saxo</span></button>
-            <button type="button" data-inst="piano" role="option"><span class="box"></span><span>Piano</span></button>
-            <button type="button" data-inst="bass" role="option"><span class="box"></span><span>Bajo</span></button>
-            <button type="button" data-inst="drums" role="option"><span class="box"></span><span>Batería</span></button>
-          </div></div>
+</div>
         <div class="qsel fchip" style="--cw:108px"><small>Cuatros</small><button class="switch" id="foursSw" role="switch" aria-label="Cuatros"></button><span id="foursInfo" hidden></span></div>
       </div>
       <div class="arr" id="arr"></div>
@@ -474,6 +475,19 @@ a{color:var(--sky)}
     <div class="flist" id="sgFolders"></div>
     <button class="btn" id="sgNewF">Nueva carpeta con esta canción</button>
     <div class="grid2"><button class="btn" id="sgEdit">Editar acordes</button><button class="btn danger" id="sgDel">Borrar canción</button></div>
+  </div>
+
+  <div class="sheet" id="shSolos">
+    <div class="grab"></div>
+    <h2>Solos</h2>
+    <p class="hint">Marca quién improvisa. El número es el orden en que tocan.</p>
+    <div class="solist" id="qSolosPanel" role="listbox" aria-multiselectable="true">
+      <button type="button" data-inst="sax" role="option"><span class="box"></span><span>Saxo</span></button>
+      <button type="button" data-inst="piano" role="option"><span class="box"></span><span>Piano</span></button>
+      <button type="button" data-inst="bass" role="option"><span class="box"></span><span>Bajo</span></button>
+      <button type="button" data-inst="drums" role="option"><span class="box"></span><span>Batería</span></button>
+    </div>
+    <button class="btn primary" id="solosDone">Listo</button>
   </div>
 
   <div class="sheet" id="shPdf">
@@ -1998,12 +2012,9 @@ $('#qKey').addEventListener('change',e=>{S.transpose=+e.target.value;changed('tr
 $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style');});
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
 function applySoloMode(){syncMode();P.startIdx=0;changed('mode');renderQuick();if(S.soloists.includes('sax')){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}
-let solosX=0;
-function placeSolos(){const r=$('#qSolosBtn').getBoundingClientRect(),pn=$('#qSolosPanel');pn.style.left=Math.max(8,Math.min(r.left-10,innerWidth-218))+'px';pn.style.bottom='auto';pn.style.top=Math.min(r.bottom+8,innerHeight-240)+'px';}
-$('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();const o=$('#qSolos').classList.toggle('open');if(o){placeSolos();solosX=$('.quick').scrollLeft;}$('#qSolosBtn').setAttribute('aria-expanded',o);});
-$('.quick').addEventListener('scroll',()=>{if(Math.abs($('.quick').scrollLeft-solosX)>6)$('#qSolos').classList.remove('open');},{passive:true});
+$('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();openSheet('#shSolos');});
+$('#solosDone').addEventListener('click',closeSheets);
 $('#qSolosPanel').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-inst]');if(!b)return;const id=b.dataset.inst,i=S.soloists.indexOf(id);if(i>=0)S.soloists.splice(i,1);else S.soloists.push(id);applySoloMode();});
-document.addEventListener('click',e=>{if(!e.target.closest('#qSolos')){$('#qSolos').classList.remove('open');$('#qSolosBtn').setAttribute('aria-expanded','false');}});
 $('#foursSw').addEventListener('click',()=>{S.fours=!S.fours;applySoloMode();});
 $('#plChips').addEventListener('click',e=>{if(e.target.closest('#addFolder')){openFolderSheet(null);return;}const b=e.target.closest('[data-pl]');if(!b)return;S.playlist=b.dataset.pl;saveS();renderLib();});
 $('#fSave').addEventListener('click',saveFolder);
