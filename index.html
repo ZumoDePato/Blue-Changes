@@ -115,7 +115,7 @@ input[type=range]{width:100%;accent-color:var(--brass);height:28px}
 .loadmsg:empty{display:none}
 .qsel.multi{padding-right:26px}
 .qsel.multi>button{appearance:none;-webkit-appearance:none;background:none;border:0;color:var(--text);font:600 15px var(--ui);padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
-.qpanel{display:none;position:fixed;left:8px;bottom:120px;width:210px;z-index:40;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.qpanel{display:none;position:fixed;left:8px;top:-1000px;width:210px;max-height:60vh;overflow-y:auto;z-index:40;background:#0f2249;border:1px solid rgba(150,185,255,.3);border-radius:14px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
 .qsel.open .qpanel{display:flex;flex-direction:column}
 .qpanel button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:11px 10px;border-radius:10px;font:600 16px var(--ui);color:var(--text);text-align:left}
 .qpanel button:active{background:rgba(255,255,255,.06)}
@@ -245,7 +245,7 @@ a{color:var(--sky)}
 <body>
 <div class="app" id="app">
   <header class="appbar">
-    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v27</small></div>
+    <div class="brand"><b>Blue</b><i>changes</i><small class="ver">v28</small></div>
     <div class="sub" id="topSub">Play-along de jazz</div>
   </header>
 
@@ -1050,7 +1050,7 @@ function buildConductor(){
 }
 
 /* ============ patrones ============ */
-function swingRatio(bpm){return bpm>250?.56:bpm>200?.6:bpm>150?.64:.67;}
+function swingRatio(bpm){return bpm>250?.54:bpm>200?.57:bpm>150?.6:bpm>110?.62:.63;}
 function scheduleBar(bar,t0,next){
   const ctx=AU.ctx,o=P.sess,bd=60/bar.tempo,B=bar.beats,style=bar.style;
   const swung=style==='swing'||style==='waltz'||style==='ballad';
@@ -1065,7 +1065,7 @@ function scheduleBar(bar,t0,next){
   const X={bar,B,T,H,bd,style,kit,segs,nextC,chordAt,o,t0,swung,I,next};
   if(bar.role==='countin'){
     const two=S.countIn===2&&bar.ci===0;
-    for(let b=0;b<B;b++){if(two&&b%2)continue;hit(b===0?'clickHi':'clickLo',T(b),.9,o.click);hit('rim',T(b),.35,o.drums);}
+    for(let b=0;b<B;b++){if(two&&b%2)continue;hit('rim',T(b),b===0?.95:.75,o.drums);}
     return B*bd;
   }
   if(bar.role==='ending'){endingBar(X);return B*bd+2.6;}
@@ -1418,116 +1418,206 @@ function soloEngine(X,st,o){
   st.q=later;st.gb=end;
 }
 /* ============ solo en línea continua ============
-   Frases largas de 2 a 4 compases hechas con vocabulario de jazz: escalas con cromatismos,
-   arpegios, encierros, giros en tresillo de semicorchea, tresillos, notas largas sincopadas y
-   secuencias (la misma figura repetida sobre el acorde siguiente: así las ideas se conectan).
-   Respiraciones cortas solo al final de cada frase. Notas en legato, sin solaparse, y humanizadas. */
-/* Arpegios de extensiones (intervalos desde la fundamental), por tipo de acorde.
-   m7: Eb∆7 (3-5-7-9), Gm7 (5-7-9-11), F7 (11-13-1-b3), Bb∆7 (7-9-11-13)…
-   7: E-ø (3-5-7-9), Gm∆ / Bb∆7#5 (7-9-#11-13), tríada de 9 (9-#11-13); alterado: disminuido desde b9, Ab∆ (b13-1-#9) */
+   Frases de 2 a 5 compases que cantan: notas del acorde en los tiempos (sobre todo donde cambia el acorde),
+   líneas bebop, encierros, anticipaciones a contratiempo, negras, pequeños silencios dentro de la frase,
+   disminuido sobre los dominantes y vocabulario de II-V-I. Como una voz: casi todo por grados, saltos de
+   como mucho una quinta (alguna vez una sexta) y, tras un salto, vuelta por grados. Las frases empiezan en
+   3.ª, 5.ª o 7.ª (nunca en una tensión) y terminan cayendo en una nota de reposo. */
+/* Arpegios de extensiones (intervalos desde la fundamental), sin empezar en tensión. */
 const XARP={
-  min:[[0,3,7,10],[3,7,10,14],[0,3,7,10],[5,9,12,15]],
-  dom:[[0,4,7,10],[4,7,10,14],[0,4,7,10]],
-  alt:[[1,4,7,10],[0,4,7,10]],
-  maj:[[0,4,7,11],[4,7,11,14],[0,4,7,11]],
+  min:[[3,7,10,14],[0,3,7,10],[7,10,14,17]],
+  dom:[[4,7,10,14],[0,4,7,10]],
+  alt:[[4,7,10,13],[4,7,10,13]],          // disminuido desde la 3.ª: 3-5-b7-b9
+  maj:[[4,7,11,14],[0,4,7,11]],
   six:[[0,4,7,9],[4,7,9,12]],
   hdim:[[0,3,6,10],[3,6,10,12]],
-  dim:[[0,3,6,9],[2,5,8,11]],
+  dim:[[0,3,6,9]],
   sus:[[0,5,7,10],[5,10,12,14]],
 };
 function xarpKind(c){const k=chordInfo(c.q);if(k.kind==='dom')return (k.alt||k.ext.some(e=>e===13||e===15||e===20))?'alt':'dom';if(k.kind==='maj')return k.sev===11?'maj':'six';if(k.kind==='min')return 'min';return XARP[k.kind]?k.kind:'maj';}
+/* Escalas bebop (8 notas): bajando desde una nota del acorde en el tiempo, las notas del acorde siguen cayendo en los tiempos. */
+const BEBOP={dom:[0,2,4,5,7,9,10,11],min:[0,2,3,5,7,9,10,11],maj:[0,2,4,5,7,8,9,11]};
+function bebopScale(c){const I=chordInfo(c.q);const k=I.kind==='dom'&&!I.alt?'dom':I.kind==='min'?'min':I.kind==='maj'?'maj':null;return k?BEBOP[k].map(i=>mod12(c.pc+i)):chordScale(c);}
+/* Vocabulario de II-V-I, escrito en Do (C4 = 0): [tiempo, duración, nota].
+   Forma larga (L): II en 0-4, V en 4-8, I desde 8. Forma corta (S): II 0-2, V 2-4, I desde 4.
+   El 7.º del II baja al 3.º del V y el 7.º del V al 3.º del I; encierros cromáticos; arpegio de 3 a 9 sobre el II;
+   disminuido desde el 3.º del V (b9) y escala semitono-tono; resolución larga en 3.ª o 5.ª del I. */
+const LICKS={
+  majL:[
+    [[.5,.5,5],[1,.5,9],[1.5,.5,12],[2,.5,16],[2.5,.5,14],[3,.5,12],[3.5,.5,10],[4,.5,11],[4.5,.5,14],[5,.5,17],[5.5,.5,20],[6,.5,19],[6.5,.5,17],[7,.5,14],[7.5,.5,17],[8,2,16]],
+    [[0,1.5,9],[1.5,.5,7],[2,.5,5],[2.5,.5,2],[3,.5,0],[3.5,.5,2],[4,.5,-1],[4.5,.5,2],[5,.5,5],[5.5,.5,9],[6,.5,8],[6.5,.5,7],[7,.5,5],[7.5,.5,6],[8,2,7]],
+    [[1.5,.5,9],[2,.5,12],[2.5,.5,16],[3,.5,14],[3.5,.5,12],[4,1,11],[5,.5,10],[5.5,.5,8],[6,.5,7],[6.5,.5,5],[7,.5,2],[7.5,.5,5],[8,2,4]],
+    [[.5,.5,5],[1,.5,9],[1.5,1,12],[2.5,.5,9],[3,1,12],[4.5,.5,11],[5,.5,9],[5.5,1,8],[6.5,.5,5],[7,.5,2],[7.5,.5,3],[8,2,4]],
+  ],
+  majS:[
+    [[0,.5,9],[.5,.5,5],[1,.5,2],[1.5,.5,0],[2,.5,-1],[2.5,.5,2],[3,.5,5],[3.5,.5,8],[4,1.5,7]],
+    [[0,.5,5],[.5,.5,9],[1,.5,12],[1.5,.5,16],[2,.5,14],[2.5,.5,12],[3,.5,11],[3.5,.5,7],[4,1.5,4]],
+    [[0,1,5],[1,.5,9],[1.5,.5,12],[2,.5,11],[2.5,.5,8],[3,.5,6],[3.5,.5,7],[4,1.5,4]],
+    [[.5,.5,12],[1,.5,9],[1.5,.5,10],[2,.5,11],[2.5,.5,14],[3,1,17],[4,1.5,16]],
+    [[.5,1,9],[1.5,.5,12],[2,.5,11],[2.5,.5,9],[3,.5,8],[3.5,.5,5],[4,1.5,4]],
+  ],
+  minL:[
+    [[.5,.5,5],[1,.5,8],[1.5,.5,12],[2,1,14],[3,.5,12],[3.5,.5,10],[4,.5,11],[4.5,.5,14],[5,.5,17],[5.5,.5,20],[6,.5,19],[6.5,.5,15],[7,.5,17],[7.5,.5,14],[8,2,15]],
+    [[0,1.5,12],[1.5,.5,8],[2,.5,5],[2.5,.5,3],[3,.5,2],[3.5,.5,0],[4,.5,-1],[4.5,.5,2],[5,.5,5],[5.5,.5,8],[6,1,11],[7,.5,10],[7.5,.5,8],[8,2,7]],
+  ],
+  minS:[
+    [[0,.5,8],[.5,.5,5],[1,.5,2],[1.5,.5,0],[2,.5,-1],[2.5,.5,2],[3,.5,5],[3.5,.5,8],[4,1.5,7]],
+    [[.5,.5,5],[1,.5,8],[1.5,.5,12],[2,.5,11],[2.5,.5,8],[3,.5,5],[3.5,.5,2],[4,1.5,3]],
+  ],
+};
 function lineEngine(X,st,o){
   const {B,chordAt,nextC,bar,t0,bd,swung}=X;
-  if(st.lastK!==P.k-1)Object.assign(st,{opening:true,lastEnd:null,gb:0,cur:.5,prev:o.center,dir:1,left:null,plen:16,q:[],seq:null,pend:null,lastCell:''});
+  if(st.lastK!==P.k-1)Object.assign(st,{opening:true,fresh:true,lastEnd:null,gb:0,cur:.5,prev:o.center,dir:1,left:null,plen:16,q:[],seq:null,pend:null,lastCell:'',lickK:-99,lastLick:''});
   st.lastK=P.k;
-  const end=st.gb+B,sw=swung?(bar.tempo>210?.56:.61):.5;
+  const end=st.gb+B,sw=swung?(bar.tempo>220?.55:bar.tempo>160?.58:.6):.5;
   const Ts=x=>{const fb=Math.floor(x+1e-6),fr=x-fb;return t0+(fb+(Math.abs(fr-.5)<1e-3?sw:fr))*bd;};
   const ctAt=x=>{const k=Math.floor(x-st.gb+1e-6);return k<B?chordAt(Math.max(0,k)):nextC;};
   const sev=I=>I.sev??(I.kind==='min'?10:11);
   const fit=n=>{while(n>o.hi)n-=12;while(n<o.lo)n+=12;return n;};
-  const target=(c,ref,dir,guide)=>{const I=chordInfo(c.q);let iv=guide?[I.third,sev(I)]:[0,I.third,I.fifth,sev(I)];
-    if(!guide&&rnd()<.1){const ex={min:[14,17],dom:I.alt?[13,15,20]:[14,21],maj:[14],hdim:[17],sus:[14,21]}[I.kind];if(ex)iv=iv.concat(ex);} // 9ª, 11ª, 13ª
+  const tonesOf=c=>{const I=chordInfo(c.q);return [0,I.third,I.fifth,sev(I)].map(i=>mod12(c.pc+i));};
+  const goodOf=c=>{const I=chordInfo(c.q);let iv=[0,I.third,I.fifth,sev(I)]; // notas de reposo: del acorde + 9.ª y 6.ª/13.ª
+    if(I.kind==='dom')iv=iv.concat(I.alt?[13,15,20]:[14,21],I.ext);else if(I.kind==='maj')iv=iv.concat([14,21]);else if(I.kind==='min')iv=iv.concat([14,17]);else iv=iv.concat(I.ext);
+    return iv.map(i=>mod12(c.pc+i));};
+  const snap=(n,pcs)=>{if(pcs.includes(mod12(n)))return n;for(const d of [-1,1,-2,2])if(pcs.includes(mod12(n+d)))return n+d;return n;};
+  // nota objetivo: al empezar frase 3.ª, 5.ª o 7.ª cerca de donde acabó la anterior; al acabar, 3.ª, 5.ª o fundamental
+  const target=(c,ref,dir,guide,mode)=>{const I=chordInfo(c.q);let iv;
+    if(st.fresh||mode==='start'){iv=[I.third,I.fifth,sev(I)];if(rnd()<.1)iv.push(0);}
+    else if(mode==='end'){iv=[I.third,I.fifth,0];if(rnd()<.3)iv.push(sev(I));}
+    else{iv=guide?[I.third,sev(I)]:[0,I.third,I.fifth,sev(I)];
+      if(!guide&&rnd()<.1){const ex={min:[14,17],dom:I.alt?[13,15,20]:[14,21],maj:[14],hdim:[17],sus:[14,21]}[I.kind];if(ex)iv=iv.concat(ex);}}
     const pcs=iv.map(i=>mod12(c.pc+i));let best=ref,bs=1e9;
-    for(let n=o.lo;n<=o.hi;n++){if(n===ref||!pcs.includes(mod12(n)))continue;const d=n-ref;let sc=Math.abs(d-dir*2)+(Math.sign(d)!==dir?2.5:0)+(Math.abs(d)>6?6:0)+Math.abs(n-o.center)*.18+rnd()*1.2;if(sc<bs){bs=sc;best=n;}}
+    const calm=st.fresh||mode==='start'||mode==='end';
+    for(let n=o.lo;n<=o.hi;n++){if(n===ref||!pcs.includes(mod12(n)))continue;const d=n-ref;
+      let sc=calm?Math.abs(d)*1.2+(Math.abs(d)>5?6:0)+(mode==='end'&&d>0?2:0):Math.abs(d-dir*2)+(Math.sign(d)!==dir?2.5:0)+(Math.abs(d)>5?6:0);
+      sc+=Math.abs(n-o.center)*.18+rnd()*1.2;if(sc<bs){bs=sc;best=n;}}
     return best;};
-  const push=(at,len,n,acc=0)=>{st.q.push({at,len,n:fit(n),acc});st.prev=fit(n);};
+  // cada nota pasa por aquí: como una voz, saltos pequeños y vuelta por grados después de saltar
+  const push=(at,len,n,acc=0)=>{
+    const p=st.prev;
+    if(p!=null){let d=n-p;const lim=st.fresh?9:(rnd()<.06?9:7);
+      while(Math.abs(d)>lim){n-=12*Math.sign(d);d=n-p;}
+      if(n>o.hi||n<o.lo){n=p-d;d=-d;} // si se sale del registro, el mismo intervalo hacia el otro lado
+      if(Math.abs(d)>=5)st.dir=-Math.sign(d);}
+    n=fit(n);st.q.push({at,len,n,acc,start:!!st.fresh});st.prev=n;st.fresh=false;};
   const turnDir=n=>{if(n>o.hi-5)st.dir=-1;else if(n<o.lo+7)st.dir=1;else if(n>o.center+6&&rnd()<.4)st.dir=-1;else if(n<o.center-6&&rnd()<.4)st.dir=1;};
   // ---- células ----
   const cells={
-    run(at,c,len2){ // escala de 4 corcheas con cromatismo ocasional
-      const sc=chordScale(c);let n=st.pend??target(c,st.prev,st.dir,false);st.pend=null;turnDir(n);const d=st.dir,steps=[];
+    bebop(at,c){ // bajando por la escala bebop desde una nota del acorde; subiendo, dígitos 1-2-3-5 / 1-3-5-7
+      const tn=tonesOf(c);let n=st.pend??target(c,st.prev,st.dir,false);st.pend=null;n=snap(n,tn);turnDir(n);
+      if(st.dir<0||rnd()<.3){const sc=bebopScale(c);push(at,.5,n,.05);for(let i=1;i<4;i++)push(at+i*.5,.5,stepScale(st.prev,-1,sc),i%2?.07:0);st.dir=-1;st.seq={kind:'run',d:-1,steps:['s','s','s']};}
+      else{const sc=chordScale(c),pat=pick([[1,1,2],[2,2,2],[1,2,2],[1,1,1]]);push(at,.5,n,.05);
+        for(let i=0;i<3;i++){let m=st.prev;for(let s=0;s<pat[i];s++)m=stepScale(m,1,sc);push(at+(i+1)*.5,.5,m,i!==1?.07:0);}
+        st.seq=null;if(rnd()<.6)st.dir=-1;}
+      const nc=ctAt(at+2);st.pend=nc&&!nc.nc?(sameChord(nc,c)&&st.dir<0?stepScale(st.prev,-1,bebopScale(c)):target(nc,st.prev,st.dir,true)):null;return 2;},
+    run(at,c){ // escala con un giro: 3 en una dirección y vuelta, con algún cromatismo
+      const sc=chordScale(c);let n=st.pend??target(c,st.prev,st.dir,false);st.pend=null;n=snap(n,tonesOf(c));turnDir(n);const d=st.dir,steps=[];
       push(at,.5,n,.06);
-      for(let i=1;i<4;i++){const ch=rnd()<.18;n=ch?n+d:stepScale(n,d,sc);steps.push(ch?'c':'s');push(at+i*.5,.5,n,i===1||i===3?.07:0);}
-      st.seq={kind:'run',d,steps};st.pend=target(ctAt(at+2),n,d,rnd()<.5);return 2;},
-    arp(at,c){ // arpegio 1-3-5-7 o 3-5-7-9, subiendo o bajando
+      for(let i=1;i<4;i++){const back=i===3&&rnd()<.45,dd=back?-d:d,ch=!back&&rnd()<.18;const m=ch?st.prev+dd:stepScale(st.prev,dd,sc);steps.push(ch?'c':'s');push(at+i*.5,.5,m,i===1||i===3?.07:0);}
+      st.seq={kind:'run',d,steps};const nc=ctAt(at+2);st.pend=nc&&!nc.nc?target(nc,st.prev,d,rnd()<.5):null;return 2;},
+    arp(at,c){ // arpegio 1-3-5-7 o 3-5-7-9
       const I=chordInfo(c.q),tn=[0,I.third,I.fifth,sev(I),14].map(i=>mod12(c.pc+i));turnDir(st.prev);const d=st.dir;
-      let n=st.pend??nearestNote(pick([c.pc,mod12(c.pc+I.third)]),st.prev,o.lo,o.hi);st.pend=null;
-      for(let i=0;i<4;i++){push(at+i*.5,.5,n,i%2?.07:0);n=stepScale(n,d,tn);}
-      st.seq={kind:'arp',d};st.pend=stepScale(st.prev,-d,chordScale(ctAt(at+2)));return 2;},
+      let n=st.pend??nearestNote(pick([mod12(c.pc+I.third),mod12(c.pc+I.fifth)]),st.prev,o.lo,o.hi);st.pend=null;
+      push(at,.5,n,0);for(let i=1;i<4;i++)push(at+i*.5,.5,stepScale(st.prev,d,tn),i%2?.07:0);
+      st.seq={kind:'arp',d};st.pend=stepScale(st.prev,-d,chordScale(ctAt(at+2)||c));return 2;},
+    dim(at,c){ // sobre dominante: disminuido desde la 3.ª (3-5-b7-b9) o escala semitono-tono bajando
+      const I=chordInfo(c.q);if(I.kind!=='dom')return cells.bebop(at,c);st.pend=null;
+      if(rnd()<.5){const pcs=[4,7,10,13].map(i=>mod12(c.pc+i));let n=nearestNote(pcs[0],st.prev-1,o.lo,o.hi-9);push(at,.5,n,.04);
+        for(let i=1;i<4;i++)push(at+i*.5,.5,stepScale(st.prev,1,pcs),i%2?.07:0);}
+      else{const hw=[0,1,3,4,6,7,9,10].map(i=>mod12(c.pc+i));push(at,.5,target(c,st.prev,-1,true),.05);for(let i=1;i<4;i++)push(at+i*.5,.5,stepScale(st.prev,-1,hw),i%2?.07:0);}
+      st.dir=-1;st.seq=null;const nc=ctAt(at+2);st.pend=nc&&!nc.nc?target(nc,st.prev,-1,true):null;return 2;},
     appr(at,c){ // una corchea de aproximación cromática hacia el tiempo siguiente
-      const T=st.pend??target(ctAt(at+.5),st.prev,st.dir,true);push(at,.5,T+(rnd()<.6?-1:1),.08);st.pend=T;return .5;},
+      const nc=ctAt(at+.5);if(!nc||nc.nc)return .5;const T=st.pend??target(nc,st.prev,st.dir,true);push(at,.5,T+(rnd()<.6?-1:1),.08);st.pend=T;return .5;},
     enc(at,c){ // encierro: por arriba y por abajo hacia la nota del siguiente tiempo
-      const T=target(ctAt(at+1),st.prev,st.dir,true);push(at,.5,stepScale(T,1,chordScale(c)),.04);push(at+.5,.5,T-1,.08);st.pend=T;return 1;},
+      const nc=ctAt(at+1);if(!nc||nc.nc)return cells.long(at,c,1);const T=target(nc,st.prev,st.dir,true);push(at,.5,stepScale(T,1,chordScale(c)),.04);push(at+.5,.5,T-1,.08);st.pend=T;return 1;},
     turn(at,c){ // do-re-do-si en tresillo de semicorchea
-      const sc=chordScale(c);const n=st.pend??target(c,st.prev,st.dir,false);st.pend=null;
+      const sc=chordScale(c);const n=snap(st.pend??target(c,st.prev,st.dir,false),tonesOf(c));st.pend=null;
       push(at,1/6,n,.04);push(at+1/6,1/6,stepScale(n,1,sc));push(at+2/6,1/6,n);push(at+3/6,.5,stepScale(n,-1,sc),.06);
-      st.pend=target(ctAt(at+1),st.prev,-1,false);return 1;},
+      const nc=ctAt(at+1);st.pend=nc&&!nc.nc?target(nc,st.prev,-1,false):null;return 1;},
     trip(at,c){ // tresillo de corchea
       const I=chordInfo(c.q),tn=[0,I.third,I.fifth,sev(I)].map(i=>mod12(c.pc+i));turnDir(st.prev);
-      let n=st.pend??target(c,st.prev,st.dir,false);st.pend=null;
-      for(let i=0;i<3;i++){push(at+i/3,1/3,n,i===0?.05:0);n=rnd()<.5?stepScale(n,st.dir,tn):stepScale(n,st.dir,chordScale(c));}
+      let n=snap(st.pend??target(c,st.prev,st.dir,false),tn);st.pend=null;
+      push(at,1/3,n,.05);for(let i=1;i<3;i++)push(at+i/3,1/3,rnd()<.5?stepScale(st.prev,st.dir,tn):stepScale(st.prev,st.dir,chordScale(c)),0);
       return 1;},
-    long(at,c,len){ // nota larga (a veces anticipada) para respirar el ritmo
-      const n=st.pend??target(c,st.prev,st.dir,true);st.pend=null;push(at,len,n,.1);return len;},
-    xarp(at,c,beats){ // arpegio superpuesto con extensiones: sube o baja 4 notas (o 4 y vuelve)
-      const set=pick(XARP[xarpKind(c)]);let base=c.pc;
-      const notesUp=set.map(i=>c.pc+i);const pcs0=notesUp[0];
-      let start=nearestNote(mod12(pcs0),st.prev+(st.dir>0?-2:2),o.lo,o.hi-8);
-      let seq=notesUp.map(n=>start+(n-pcs0));if(seq[3]>o.hi){seq=seq.map(n=>n-12);}
-      const down=st.dir<0&&rnd()<.6;if(down){const top=seq[3];seq=seq.slice().reverse();if(Math.abs(top-st.prev)>7)seq=seq.map(n=>n-12*Math.sign(top-st.prev));}
-      const back=beats>=2&&rnd()<.35;
-      const notes=back?seq.concat(seq.slice(0,3).reverse()):seq;
-      const trip=!back&&rnd()<.25;
-      if(trip){notes.slice(0,3).forEach((n,i)=>push(at+i/3,1/3,n,i===0?.06:0));st.seq={kind:'arp',d:down?-1:1};st.pend=null;return 1;}
-      notes.forEach((n,i)=>push(at+i*.5,.5,n,i%2?.07:0));
-      st.dir=down?-1:1;st.seq={kind:'arp',d:st.dir};st.pend=target(ctAt(at+notes.length*.5),st.prev,-st.dir,rnd()<.5);
-      return notes.length*.5;},
+    synco(at,c){ // corchea y nota larga a contratiempo que se adelanta al acorde siguiente
+      const c2=ctAt(at+1);const a=st.pend??target(c,st.prev,st.dir,true);st.pend=null;push(at,.5,a,.04);
+      push(at+.5,1,target(c2&&!c2.nc?c2:c,st.prev,st.dir,true),.13);st.seq=null;return 1.5;},
+    quarts(at,c){ // dos negras cantadas (notas guía); la segunda algo picada
+      push(at,1,st.pend??target(c,st.prev,st.dir,true),.06);st.pend=null;
+      const c2=ctAt(at+1);push(at+1,.8,target(c2&&!c2.nc?c2:c,st.prev,st.dir,rnd()<.6),.02);st.seq=null;return 2;},
+    rest(at,c){return pick([.5,.5,1]);}, // respiración corta dentro de la frase
+    long(at,c,len,mode){ // nota larga (a veces anticipada) para respirar el ritmo
+      const n=mode==='end'?target(c,st.prev,-1,true,'end'):(st.pend??target(c,st.prev,st.dir,true));st.pend=null;push(at,len,n,.1);return len;},
+    xarp(at,c,beats){ // arpegio superpuesto con extensiones
+      const set=pick(XARP[xarpKind(c)]);const up=set.map(i=>c.pc+i);
+      const start=nearestNote(mod12(up[0]),st.prev+(st.dir>0?-2:2),o.lo,o.hi-8);
+      let seq=up.map(n=>start+(n-up[0]));if(seq[3]>o.hi)seq=seq.map(n=>n-12);
+      const down=st.dir<0&&rnd()<.6;if(down)seq=seq.slice().reverse();
+      seq.forEach((n,i)=>push(at+i*.5,.5,n,i%2?.07:0));
+      st.dir=down?1:-1;st.seq={kind:'arp',d:down?-1:1};const nc=ctAt(at+2);st.pend=nc&&!nc.nc?target(nc,st.prev,st.dir,true):null;
+      return 2;},
     seq(at,c){ // repite la última figura sobre el acorde nuevo
-      const q=st.seq;if(!q)return cells.run(at,c);
+      const q=st.seq;if(!q)return cells.bebop(at,c);
       if(q.kind==='arp'){st.dir=q.d;return cells.arp(at,c);}
-      const sc=chordScale(c);let n=target(c,st.prev,q.d,true);st.pend=null;push(at,.5,n,.06);
-      q.steps.forEach((k,i)=>{n=k==='c'?n+q.d:stepScale(n,q.d,sc);push(at+(i+1)*.5,.5,n,i%2===0?.07:0);});
-      st.pend=target(ctAt(at+2),n,q.d,true);return 2;},
+      const sc=chordScale(c);push(at,.5,target(c,st.prev,q.d,true),.06);st.pend=null;
+      q.steps.forEach((k,i)=>push(at+(i+1)*.5,.5,k==='c'?st.prev+q.d:stepScale(st.prev,q.d,sc),i%2===0?.07:0));
+      const nc=ctAt(at+2);st.pend=nc&&!nc.nc?target(nc,st.prev,q.d,true):null;return 2;},
   };
+  // ---- vocabulario de II-V-I: si aquí empieza un II-V, a veces se toca una frase hecha ----
+  const tryLick=at=>{
+    const rel0=at-st.gb;if(rel0<-1e-6||rel0>1.5+1e-6||!o.lick||st.lickTry===P.k||P.k-st.lickK<3)return 0;
+    st.lickTry=P.k;if(rnd()>o.lick)return 0; // un intento por compás
+    at=st.gb;const c0=ctAt(at);if(!c0||c0.nc)return 0;const k0=chordInfo(c0.q);
+    if(!((k0.kind==='min'&&k0.sev===10)||k0.kind==='hdim'))return 0;
+    let form=null,cV=null;
+    if(B>=4&&sameChord(ctAt(at+1),c0)&&ctAt(at+2)&&!sameChord(ctAt(at+2),c0)&&sameChord(ctAt(at+3),ctAt(at+2))){cV=ctAt(at+2);form='S';}
+    else if(B===4&&sameChord(ctAt(at+3),c0)&&nextC&&X.next&&X.next.segs&&X.next.segs.length===1){cV=nextC;form='L';}
+    if(!cV||cV.nc)return 0;const kV=chordInfo(cV.q);
+    if(kV.kind!=='dom'||mod12(c0.pc+5)!==cV.pc)return 0;
+    if(bar.turn){const left=(bar.turn-bar.turnPos)*B-(at-st.gb);if(left<(form==='L'?10:6))return 0;}
+    const minor=k0.kind==='hdim'||kV.alt||kV.ext.includes(13)||kV.ext.includes(20);
+    const key=(minor?'min':'maj')+form;
+    const ids=LICKS[key].map((_,i)=>i).filter(i=>LICKS[key][i][0][0]>=rel0-1e-6&&st.lastLick!==key+i); // que el lick empiece donde está la línea
+    if(!ids.length)return 0;const li=pick(ids),lick=LICKS[key][li],tonic=mod12(cV.pc+5);let best=null,bs=1e9;
+    for(let base=tonic+24;base<=tonic+84;base+=12){let s=Math.abs(lick[0][2]+base-st.prev);
+      for(const [,,r] of lick){const m=r+base;if(m>o.hi)s+=(m-o.hi)*4;if(m<o.lo)s+=(o.lo-m)*4;}
+      if(s<bs){bs=s;best=base;}}
+    if(best==null||bs>14||Math.abs(lick[0][2]+best-st.prev)>(st.fresh?9:7))return 0; // que entre cerca de donde está la línea
+    st.lastLick=key+li;st.lickK=P.k;st.pend=null;st.seq=null;st.fresh=false;
+    lick.forEach(([p,l,r],i)=>st.q.push({at:at+p,len:l,n:r+best,acc:(p%1?.06:0)+(i===lick.length-1?.08:0),raw:i<lick.length-1}));
+    st.prev=lick[lick.length-1][2]+best;st.dir=-1;
+    const last=lick[lick.length-1];return last[0]+last[1]-rel0;};
   const W=o.w;
+  const pickW=w=>{const r=rnd()*w.tot;let acc=0;for(const [name,x] of w.list){acc+=x;if(r<acc)return name;}return w.list[0][0];};
+  const OPEN=mkW({bebop:.3,synco:.25,quarts:.2,long:.15,run:.1});
   // longitud de frase en compases, alineada con los grupos de 4 compases del tema
   const phraseLen=at=>{if(bar.turn){const left=(bar.turn-bar.turnPos)*B-(at-st.gb);return Math.max(2.5,left-1.5);} // en los cuatros, cada frase cabe en el turno
     const pos=bar.pos??0,inBar=at-st.gb,toGroup=(4-pos%4)*B-inBar;
     const r=rnd();
-    if(r<.8){ // 4 a 5 compases, la longitud que mejor caiga con el final de un grupo de 4
-      let best=4*B,bs=1e9;for(const L of [4*B,4.5*B,5*B]){let d=1e9;for(let m=0;m<3;m++)d=Math.min(d,Math.abs(toGroup+4*B*m-L));d+=rnd()*.8;if(d<bs){bs=d;best=L;}}
+    if(r<.8){let best=4*B,bs=1e9;for(const L of [4*B,4.5*B,5*B]){let d=1e9;for(let m=0;m<3;m++)d=Math.min(d,Math.abs(toGroup+4*B*m-L));d+=rnd()*.8;if(d<bs){bs=d;best=L;}}
       return best-1.5;}
     return pick([2,3,6])*B-1.5;}; // a veces se rompe la estructura
   if(st.left==null)st.left=st.plen=phraseLen(st.cur);
+  const breathe=at=>{st.cur=at+pick(o.breath);st.left=st.plen=phraseLen(st.cur);st.opening=false;st.fresh=true;st.pend=null;st.seq=null;
+    if(rnd()<.5)st.cur=Math.floor(st.cur)+.5;st.dir=rnd()<.6?1:-1;};
   while(st.cur<end){
     const at=st.cur,c=ctAt(at);
     if(!c||c.nc){st.cur=Math.floor(at)+1;continue;}
-    if(st.left<=0){ // fin de frase: nota larga y respiración corta
-      const L=pick([1,1.5,1.5,2]);cells.long(at,c,L);
-      st.cur=at+L+pick(o.breath);st.left=st.plen=phraseLen(st.cur);st.opening=false;
-      if(rnd()<.5)st.cur=Math.floor(st.cur)+.5;st.dir=rnd()<.6?-st.dir:st.dir;continue;}
-    const onBeat=Math.abs(at-Math.round(at))<1e-6,changing=!sameChord(ctAt(at),ctAt(at-1));
+    if(st.left<=0){const L=pick([1,1.5,1.5,2]);cells.long(at,c,L,'end');breathe(at+L);continue;} // fin de frase: cae en nota de reposo y respira
+    const onBeat=Math.abs(at-Math.round(at))<1e-6;
+    {const u=tryLick(at);if(u){st.left-=u;if(st.left<6||rnd()<.55)breathe(at+u);else st.cur=at+u;continue;}}
+    const changing=!sameChord(ctAt(at),ctAt(at-1)),prog=1-st.left/Math.max(1,st.plen);
+    if(onBeat&&rnd()<.3)st.dir=prog<.5?1:-1; // la frase sube y luego baja
     let k;
-    if(!onBeat)k=rnd()<.7?'appr':'long';
-    else if(st.opening){k=changing&&st.seq?'seq':(rnd()<.78?'run':'long');if(k==='run'&&!st.seq)st.dir=1;}
-    else if(changing&&st.seq&&rnd()<.4)k='seq';
-    else{const r=rnd()*W.tot;let acc=0;for(const [name,w] of W.list){acc+=w;if(r<acc){k=name;break;}}}
-    if(k==='xarp'&&(B-(at-st.gb))<2&&rnd()<.5)k='arp';
-    if(k==='enc'&&st.pend!=null)k='run';
-    k=k||'run';
-  if(k==='turn'||k==='trip'||k==='enc'){if(rnd()>o.orn*2.2&&k!=='enc')k='run';}
-    const used=k==='long'?cells.long(at,c,onBeat?pick([1,1.5]):.5):k==='xarp'?cells.xarp(at,c,2):cells[k](at,c);
-    st.lastCell=k;st.cur=at+used;st.left-=used;if(used>=2&&rnd()<.3)st.dir*=-1;
+    if(!onBeat)k=rnd()<.6?'appr':rnd()<.5?'long':'synco';
+    else if(st.fresh)k=changing&&st.seq?'seq':pickW(OPEN);
+    else if(changing&&st.seq&&rnd()<.35)k='seq';
+    else k=pickW(W);
+    if(k==='rest'&&(st.lastCell==='rest'||st.left<3||st.fresh))k='bebop';
+    if(k==='xarp'&&(B-(at-st.gb))<2)k='arp';
+    if(k==='enc'&&st.pend!=null)k='bebop';
+    if((k==='turn'||k==='trip')&&rnd()>o.orn*2.2)k='bebop';
+    const used=k==='long'?cells.long(at,c,onBeat?pick([1,1.5]):.5):cells[k](at,c);
+    st.lastCell=k;st.cur=at+used;st.left-=used;
   }
   // programa las notas de este compás en legato
   st.q.sort((a,b)=>a.at-b.at);
@@ -1535,24 +1625,29 @@ function lineEngine(X,st,o){
   for(let i=0;i<st.q.length;i++){
     const e=st.q[i];if(e.at>=end){later.push(e);continue;}
     const nx=st.q[i+1],rel=e.at-st.gb;
+    // en los tiempos donde cambia el acorde, al empezar frase y en notas largas: nota del acorde (o 9.ª/13.ª en notas largas)
+    const first=!(st.lastEnd!=null&&e.at-st.lastEnd<.05);
+    let n=e.n;const c=ctAt(e.at);
+    if(c&&!c.nc&&!e.raw){const onB=Math.abs(rel-Math.round(rel))<1e-6,strong=onB&&(rel<1e-6||!sameChord(c,ctAt(e.at-1)));
+      if(strong||e.start||first)n=snap(n,tonesOf(c));else if(e.len>=1)n=snap(n,goodOf(c));}
     const lenB=nx?Math.min(e.len,nx.at-e.at):e.len,legato=nx&&nx.at-(e.at+e.len)<.01;
-    const first=!(st.lastEnd!=null&&e.at-st.lastEnd<.05),last=!nx||nx.at-(e.at+lenB)>=.2;st.lastEnd=e.at+lenB;
+    const last=!nx||nx.at-(e.at+lenB)>=.2;st.lastEnd=e.at+lenB;
     const info={first,last,legato:!first,legato_out:legato,acc:e.acc};
     const t=Ts(rel)+o.lay+(rnd()-.5)*o.jit,dur=Math.max(.05,Ts(rel+lenB)-Ts(rel)-(legato?o.gap:0));
     const prog=clamp(1-st.left/Math.max(1,st.plen),0,1);
     let v=o.base+.1*Math.sin(Math.PI*prog)+e.acc+(rnd()-.5)*.08;if(rnd()<.08&&e.len<=.5)v-=.16; // notas fantasma
-    o.play(t,e.n,dur,clamp(v,.15,.95),legato,info);
+    o.play(t,n,dur,clamp(v,.15,.95),legato,info);
   }
   st.q=later;st.gb=end;
 }
 const sameChord=(a,b)=>a&&b&&a.pc===b.pc&&a.q===b.q;
 function mkW(obj){const list=Object.entries(obj);return {list,tot:list.reduce((a,[,w])=>a+w,0)};}
-function saxSolo(X){lineEngine(X,P.ssolo,{lo:52,hi:77,center:64,orn:.32,phrase:[8,15],breath:[.5,.5,1],base:.56,lay:.008,jit:.012,gap:-.012,
-  w:mkW({run:.3,arp:.1,xarp:.07,enc:.12,turn:.09,trip:.08,long:.11,seq:.13}),play:(t,n,d,v,leg,info)=>saxNote(t,n,d,v,X.o.sax,info)});}
-function pianoSolo(X){const f=X.bar.tempo>=200,sl=X.bar.tempo<100;lineEngine(X,P.solo,{lo:60,hi:84,center:70,orn:f?.04:sl?.25:.16,phrase:[10,18],breath:[.5,1],base:.5,lay:0,jit:.01,gap:0,
-  w:mkW(f?{run:.3,arp:.14,xarp:.04,enc:.1,turn:0,trip:.02,long:.22,seq:.18}:{run:.32,arp:.1,xarp:.07,enc:.12,turn:.05,trip:.08,long:.11,seq:.15}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
-function bassSolo(X){lineEngine(X,P.bsolo,{lo:38,hi:58,center:46,orn:.08,phrase:[6,12],breath:[1,1.5],base:.72,lay:.004,jit:.012,gap:.01,
-  w:mkW({run:.25,arp:.17,xarp:.04,enc:.1,turn:.02,trip:.05,long:.27,seq:.1}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
+function saxSolo(X){lineEngine(X,P.ssolo,{lo:52,hi:77,center:64,orn:.3,lick:.5,phrase:[8,15],breath:[.5,.5,1],base:.56,lay:.008,jit:.012,gap:-.012,
+  w:mkW({bebop:.16,run:.07,arp:.05,xarp:.04,dim:.07,enc:.1,turn:.05,trip:.05,synco:.1,quarts:.07,rest:.05,long:.1,seq:.09}),play:(t,n,d,v,leg,info)=>saxNote(t,n,d,v,X.o.sax,info)});}
+function pianoSolo(X){const f=X.bar.tempo>=200,sl=X.bar.tempo<100;lineEngine(X,P.solo,{lo:60,hi:84,center:70,orn:f?.04:sl?.25:.16,lick:f?.35:.45,phrase:[10,18],breath:[.5,1],base:.5,lay:0,jit:.01,gap:0,
+  w:mkW(f?{bebop:.22,run:.1,arp:.1,xarp:.03,dim:.05,enc:.08,turn:0,trip:.02,synco:.06,quarts:.05,rest:.03,long:.16,seq:.14}:{bebop:.18,run:.08,arp:.07,xarp:.05,dim:.07,enc:.1,turn:.04,trip:.06,synco:.08,quarts:.05,rest:.04,long:.08,seq:.1}),play:(t,n,d,v)=>pnote(t,n,d*.96,v,X.o.piano)});}
+function bassSolo(X){lineEngine(X,P.bsolo,{lo:38,hi:58,center:46,orn:.08,lick:.2,phrase:[6,12],breath:[1,1.5],base:.72,lay:.004,jit:.012,gap:.01,
+  w:mkW({bebop:.12,run:.1,arp:.12,xarp:.02,dim:.03,enc:.08,turn:.02,trip:.04,synco:.08,quarts:.1,rest:.06,long:.2,seq:.08}),play:(t,n,d,v)=>bnote(t,n,d,clamp(v*1.2,.1,1),X.o.bass)});}
 const DCELLS=[
   [[0,'snare',.8],[1/3,'snare',.4],[2/3,'snare',.6]],[[0,'tomH',.8],[1/3,'tomM',.7],[2/3,'tomL',.8]],[[0,'kick',.6],[0,'splash',.45]],
   [[0,'snare',.7],[.5,'kick',.6]],[[0,'snare',.5],[.25,'snare',.35],[.5,'snare',.55],[.75,'snare',.7]],[[.5,'snare',.8]],
@@ -1904,7 +1999,7 @@ $('#qStyle').addEventListener('change',e=>{S.style=e.target.value;changed('style
 $('#qInst').addEventListener('change',e=>{S.inst=+e.target.value;changed('inst');});
 function applySoloMode(){syncMode();P.startIdx=0;changed('mode');renderQuick();if(S.soloists.includes('sax')){if(AU.ctx)loadInst('tenor');else prefetch('tenor');}}
 let solosX=0;
-function placeSolos(){const r=$('#qSolosBtn').getBoundingClientRect(),pn=$('#qSolosPanel');pn.style.left=Math.max(8,Math.min(r.left-10,innerWidth-218))+'px';pn.style.bottom=(innerHeight-r.top+14)+'px';}
+function placeSolos(){const r=$('#qSolosBtn').getBoundingClientRect(),pn=$('#qSolosPanel');pn.style.left=Math.max(8,Math.min(r.left-10,innerWidth-218))+'px';pn.style.bottom='auto';pn.style.top=Math.min(r.bottom+8,innerHeight-240)+'px';}
 $('#qSolosBtn').addEventListener('click',e=>{e.stopPropagation();const o=$('#qSolos').classList.toggle('open');if(o){placeSolos();solosX=$('.quick').scrollLeft;}$('#qSolosBtn').setAttribute('aria-expanded',o);});
 $('.quick').addEventListener('scroll',()=>{if(Math.abs($('.quick').scrollLeft-solosX)>6)$('#qSolos').classList.remove('open');},{passive:true});
 $('#qSolosPanel').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-inst]');if(!b)return;const id=b.dataset.inst,i=S.soloists.indexOf(id);if(i>=0)S.soloists.splice(i,1);else S.soloists.push(id);applySoloMode();});
